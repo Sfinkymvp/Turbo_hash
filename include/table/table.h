@@ -5,16 +5,15 @@
 
 #include "common/hash.h"
 
-
 typedef struct HashNode HashNode;
 struct HashNode {
-    const char* key;
+    const char *key;
     int value;
-    HashNode* next;
+    HashNode *next;
 };
 
-typedef struct {
-    HashNode** buckets;
+typedef struct ChainHashTable {
+    HashNode **buckets;
     size_t size;
     size_t capacity;
     hash_function hash_func;
@@ -22,14 +21,17 @@ typedef struct {
     double max_load_factor;
 } ChainHashTable;
 
-ChainHashTable* chain_ht_create(unsigned int capacity, double max_load_factor, hash_function hash, equals_function equals);
+#define CHAIN_HT_ASSERT(table_ptr) \
+    assert((table_ptr)->buckets); assert((table_ptr)->hash_func)
 
-int chain_ht_insert(ChainHashTable* table, const char* key, int value);
+ChainHashTable *chain_ht_create(uint64_t capacity, double max_load_factor, hash_function hash, equals_function equals);
 
-int chain_ht_find(const ChainHashTable* table, const char* key, int* result);
+int chain_ht_insert(ChainHashTable *table, const char *key, int value);
 
-int chain_ht_remove(ChainHashTable* table, const char* key);
+int chain_ht_find(const ChainHashTable *table, const char *key, int *result);
 
-void chain_ht_destroy(ChainHashTable* table);
+int chain_ht_remove(ChainHashTable *table, const char *key);
+
+void chain_ht_destroy(ChainHashTable *table);
 
 #endif // TABLE_H

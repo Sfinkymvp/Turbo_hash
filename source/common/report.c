@@ -4,23 +4,22 @@
 
 #include "common/report.h"
 
+#define _BRED "\033[1;31m"
+#define _BMAG "\033[1;35m"
+#define _BCYN "\033[1;36m"
+#define _CRESET "\033[0m"
 
-#define BRED "\033[1;31m"
-#define BMAG "\033[1;35m"
-#define BCYN "\033[1;36m"
-#define CRESET "\033[0m"
+static int _msg_prefix(FILE *stream, const char *file_path, const char *function, int line);
 
-
-static int report_prefix(FILE* stream, const char* filename, const char* function, int line);
-
-
-int report_wrapper(FILE* stream, const char* filename, const char* function, int line, const char* format, ...)
+int _msg_wrapper(FILE *stream, const char *file_path, const char *function, int line, const char *format, ...)
 {
-    assert(stream); assert(filename); assert(function); assert(format);
-
+    assert(stream);
+    assert(file_path);
+    assert(function);
+    assert(format);
 
     int total_printed = 0;
-    int result = report_prefix(stream, filename, function, line);
+    int result = _msg_prefix(stream, file_path, function, line);
     if (result < 0) {
         return result;
     }
@@ -45,21 +44,21 @@ int report_wrapper(FILE* stream, const char* filename, const char* function, int
     return total_printed;
 }
 
-
-int report_prefix(FILE* stream, const char* filename, const char* function, int line)
+int _msg_prefix(FILE *stream, const char *file_path, const char *function, int line)
 {
-    assert(stream); assert(filename); assert(function);
+    assert(stream); assert(file_path); assert(function);
 
     int result = 0;
     if (stream == stdout || stream == stderr) {
         result = fprintf(stream,
-            BRED "[ERROR] " BMAG "[%s] " BCYN "[%s:%d] " CRESET,
-            filename, function, line);
+            _BRED "[ERROR] " _BMAG "[%s] " _BCYN "[%s:%d] " _CRESET,
+            file_path, function, line);
     } else {
         result = fprintf(stream,
             "[ERROR] [%s] [%s:%d] ",
-            filename, function, line);
+            file_path, function, line);
     }
 
     return result;
 }
+

@@ -8,7 +8,7 @@ IMAGES_DIR    = images
 DATA_DIR 	  = data
 SUBMODULE_DIR = Array_based_list
 
-CC 			  =    gcc
+CC 			  = gcc
 CFLAGS     	  = -I$(INC_DIR) -I$(SUBMODULE_DIR) -Wall -Wextra -Werror
 
 TARGET_FILE 	  = table.out
@@ -21,19 +21,29 @@ TARGET_GENERATOR = hash_table
 # В качестве единственного аргумента передается поддиректория в $(SRC_DIR)
 get_objects = $(patsubst $(SRC_DIR)/$(1)/*.c,$(OBJ_DIR)/$(1)/*.o,$(wildcard $(SRC_DIR)/$(1)/*.c))
 
-COMMON_FILES = $(call get_objects,common)
-TABLE_FILES  = $(call get_objects,table)
+COMMON_FILES =  $(call get_objects,common)
+TABLE_FILES  =  $(call get_objects,table)
+TESTING_FILES = $(call get_objects,testing)
 
 REPORT_OBJ = $(filter %report.o $(COMMON_FILES))
 
+CFILES = $(COMMON_FILES) $(TABLE_FILES) $(TESTING_FILES)
 
-.PHONY: all run
+.PHONY: all run clean
 
 all: | $(BIN_DIR)
-	@$(CC) $(CFLAGS) $(SRC_DIR)/table/table.c $(SRC_DIR)/testing/main.c $(SRC_DIR)/common/report.c -o $(BIN_DIR)/$(TARGET_FILE)
+	@$(CC) $(CFLAGS) $(CFILES) -o $(BIN_DIR)/$(TARGET_FILE)
 
 run: 
 	@./$(BIN_DIR)/$(TARGET_FILE)
+
+clean:
+	@rm -rf $(BIN_DIR)
+	@rm -rf $(OBJ_DIR)
+
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c | $(OBJ_DIR)
+	@mkdir -p $(dir $@)
+	@$(CC) $(CFLAGS) -c $< -o $@
 
 $(OBJ_DIR) $(BIN_DIR):
 	@mkdir -p $@

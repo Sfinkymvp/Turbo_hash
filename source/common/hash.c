@@ -1,11 +1,11 @@
 #include <stdio.h>
 #include <stdint.h>
+#include <string.h>
+#include <assert.h>
 
 #include "common/hash.h"
 
-
-static const uint64_t CRC64_INIT = 0xFFFFFFFFFFFFFFFFull;
-
+static const uint64_t CRC64_INIT = 0xFFFFFFFFFFFFFFFFULL;
 
 uint64_t crc64_table[256] = {
     0x0000000000000000ULL, 0x3c3b78e888d80fe1ULL, 0x7876f1d111b01fc2ULL, 0x444d893999681023ULL, 
@@ -74,11 +74,17 @@ uint64_t crc64_table[256] = {
     0x505b5e9e1edfea83ULL, 0x6c6026769607e562ULL, 0x282daf4f0f6ff541ULL, 0x1416d7a787b7faa0ULL
 };
 
-
-
-uint64_t hash_string_crc64_naive(const char* key, uint64_t table_size)
+int string_equals(const char* str1, const char* str2)
 {
-    const uint8_t* buffer = (const uint8_t*)key;
+    assert(str1);
+    assert(str2);
+
+    return strcmp(str1, str2) == 0;
+}
+
+uint64_t hash_string_crc64_naive(const char *key, uint64_t modulus)
+{
+    const uint8_t *buffer = (const uint8_t*)key;
     uint64_t crc = CRC64_INIT;
 
     for (; *buffer != '\0'; buffer++) {
@@ -86,5 +92,5 @@ uint64_t hash_string_crc64_naive(const char* key, uint64_t table_size)
         crc = (crc >> 8) ^ crc64_table[index];
     }
 
-    return (crc ^ CRC64_INIT) % table_size;
+    return (crc ^ CRC64_INIT) % modulus;
 } 
