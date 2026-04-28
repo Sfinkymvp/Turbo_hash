@@ -1,9 +1,9 @@
 SRC_DIR       = source
 INC_DIR       = include
-OBJ_DIR       = obj
+BASE_OBJ_DIR  = obj
 BIN_DIR       = bin
 SCRIPTS_DIR   = scripts
-ERRORS_DIR   = reports
+REPORTS_DIR   = reports
 IMAGES_DIR    = images
 DATA_DIR 	  = data
 SUBMODULE_DIR = Array_based_list
@@ -12,6 +12,7 @@ CC 			  = gcc
 CFLAGS     	  = -I$(INC_DIR) -Wall -Wextra -Werror\
 				-O3 -march=native -g
 ASMFLAGS 	  = -masm=intel -march=native
+ASM_OFILES    = 
 
 GENFLAGS 	  = -I$(INC_DIR) -O3 
 
@@ -20,6 +21,16 @@ GEN_TARGET_FILE     = gen
 
 # DATA_GEN_SCRIPT = data_generator.sh
 # PLOT_GEN_SCRIPT = plot_generator.py
+
+ifdef CMP
+	OBJ_DIR = $(BASE_OBJ_DIR)/$(CMP)
+	ASM_OFILES += $(OBJ_DIR)/common/$(CMP).o
+	CFLAGS += -DMY_STRCMP
+	BENCH_TARGET_FILE = bench_$(CMP)
+else
+	OBJ_DIR = $(BASE_OBJ_DIR)
+	BENCH_TARGET_FILE = bench_libc
+endif 
 
 # Функция для получения объектных файлов на основе .c файлов из поддиректорий $(SRC_DIR)
 # В качестве единственного аргумента передается поддиректория в $(SRC_DIR)
@@ -31,18 +42,11 @@ TESTING_OFILES = $(call get_c_objects,testing)
 ERROR_OBJ      = $(filter %report.o $(COMMON_OFILES))
 
 OFILES         = $(COMMON_OFILES) $(TABLE_OFILES) $(TESTING_OFILES)
-ASM_OFILES     = 
 
 GEN_OFILES     = $(call get_c_objects,generator)
 
 ifeq ($(LOGS), OFF)
 	CFLAGS += -DDISABLE_LOGS
-endif 
-
-ifeq ($(FASTCMP), ON)
-	ASM_OFILES += $(OBJ_DIR)/common/strcmp.o
-	CFLAGS += -DMY_STRCMP
-	BENCH_TARGET_FILE = bench_fastcmp
 endif 
 
 ifeq ($(DEBUG), OFF)
