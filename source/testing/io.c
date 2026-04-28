@@ -20,15 +20,17 @@ int parse_args(Args *args, int argc, char *const *argv)
     args->max_load_factor = DEFAULT_MAX_LOAD_FACTOR;
     args->file_path = NULL;
     args->lookup_iterations = DEFAULT_LOOKUP_ITERATIONS;
+    args->hash_func = DEFAULT_HASH_FUNCTION;
+    args->equals_func = DEFAULT_EQUALS_FUNCTION;
 
     char *end_ptr = NULL;
     int opt = 0;
-    while ((opt = getopt(argc, argv, "l:f:i:")) != -1) {
+    while ((opt = getopt(argc, argv, "l:f:i:1")) != -1) {
         switch (opt) {
             case 'l': {
                 args->max_load_factor = strtod(optarg, &end_ptr);
                 if (*end_ptr != '\0') {
-                    REPORT(stderr, "Invalid max load factor");
+                    ERROR("Invalid max load factor");
                     return 1;
                 }
                 break;
@@ -39,10 +41,13 @@ int parse_args(Args *args, int argc, char *const *argv)
             } case 'i': {
                 args->lookup_iterations = strtoull(optarg, &end_ptr, 10);
                 if (*end_ptr != '\0') {
-                    REPORT(stderr, "invalid iteration count");
+                    ERROR("invalid iteration count");
                     return 1;
                 }
                 break;
+            }
+            case '1': {
+                args->hash_func = hash_string_crc32_intr;
             }
             default: {
                 break;
@@ -53,12 +58,12 @@ int parse_args(Args *args, int argc, char *const *argv)
     if (args->file_path) {
         FILE *file = fopen(args->file_path, "r");
         if (file == NULL) {
-            REPORT(stderr, "Error opening file %s: %s", args->file_path, strerror(errno));
+            ERROR("Error opening file %s: %s", args->file_path, strerror(errno));
             return 1;
         }
         fclose(file);
     } else {
-        REPORT(stderr, "Option -f (file) is required");
+        ERROR("Option -f (file) is required");
         return 1;
     }
 
@@ -73,20 +78,20 @@ int read_file_to_buffer(char **buffer, uint64_t *buffer_size, const char *file_p
     char *temp = NULL;
     FILE *file = fopen(file_path, "r");
     if (file == NULL) {
-        REPORT(stderr, "Error while working with file '%s'", file_path);
+        ERROR("Error while working with file '%s'", file_path);
         return 1;
     }
 
     uint64_t file_size = get_file_size(file);
     if (file_size == 0) {
-        REPORT(stderr, "File '%s' is empty");
+        ERROR("File '%s' is empty");
         fclose(file);
         return 1;
     }
 
     temp = (char *)calloc(file_size + 1, sizeof(char));
     if (temp == NULL) {
-        REPORT(stderr, "Memory allocation error");
+        ERROR("Memory allocation error");
         fclose(file);
         return 1;
     }
@@ -95,7 +100,7 @@ int read_file_to_buffer(char **buffer, uint64_t *buffer_size, const char *file_p
     fclose(file);
 
     if (read_count != file_size) {
-        REPORT(stderr, "File '%s' reading error");
+        ERROR("File '%s' reading error");
         free(temp);
         return 1;
     }

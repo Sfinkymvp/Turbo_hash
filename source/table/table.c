@@ -6,7 +6,6 @@
 #include "common/hash.h"
 #include "common/report.h"
 
-
 static int chain_ht_rehash(ChainHashTable *table);
 static void list_destroy(HashNode *head);
 
@@ -15,15 +14,15 @@ ChainHashTable *chain_ht_create(uint64_t capacity, double max_load_factor, hash_
 {
     assert(hash);
 
-    ChainHashTable *table = (ChainHashTable*)calloc(1, sizeof(ChainHashTable));
+    ChainHashTable *table = (ChainHashTable *)calloc(1, sizeof(ChainHashTable));
     if (table == NULL) {
-        REPORT(stderr, "Memory allocation error");
+        ERROR("Memory allocation error");
         return NULL;
     }
 
-    table->buckets = (HashNode**)calloc(capacity, sizeof(HashNode*));
+    table->buckets = (HashNode **)calloc(capacity, sizeof(HashNode*));
     if (table->buckets == NULL) {
-        REPORT(stderr, "Memory allocation error");
+        ERROR("Memory allocation error");
         chain_ht_destroy(table);
         return NULL;
     }
@@ -49,8 +48,8 @@ int chain_ht_insert(ChainHashTable *table, const char *key, int value)
     }
     }
 
-    size_t hash = table->hash_func(key, table->capacity);
-    HashNode* *head = &table->buckets[hash];
+    size_t hash = table->hash_func(key) % table->capacity;
+    HashNode **head = &table->buckets[hash];
 
     HashNode *current = *head;
     while (current) {
@@ -60,9 +59,9 @@ int chain_ht_insert(ChainHashTable *table, const char *key, int value)
         current = current->next;
     }
 
-    HashNode *new_node = (HashNode*)calloc(1, sizeof(HashNode));
+    HashNode *new_node = (HashNode *)calloc(1, sizeof(HashNode));
     if (new_node == NULL) {
-        REPORT(stderr, "Memory allocation error");
+        ERROR("Memory allocation error");
         return 1;
     }
     new_node->key = key;
@@ -79,7 +78,7 @@ int chain_ht_find(const ChainHashTable *table, const char *key, int *result)
 {
     CHAIN_HT_ASSERT(table); assert(key); assert(result);
 
-    uint64_t hash = table->hash_func(key, table->capacity);
+    uint64_t hash = table->hash_func(key) % table->capacity;
     HashNode *current = table->buckets[hash];
 
     while (current != NULL) {
@@ -98,8 +97,8 @@ int chain_ht_remove(ChainHashTable *table, const char *key)
 {
     CHAIN_HT_ASSERT(table); assert(key);
 
-    uint64_t hash = table->hash_func(key, table->capacity);
-    HashNode* *head = &table->buckets[hash];
+    uint64_t hash = table->hash_func(key) % table->capacity;
+    HashNode **head = &table->buckets[hash];
 
     HashNode *current = *head;
     HashNode *prev = NULL;
@@ -147,10 +146,10 @@ static int chain_ht_rehash(ChainHashTable *table)
     uint64_t old_capacity = table->capacity;
     uint64_t new_capacity = old_capacity  *2;
 
-    HashNode* *old_buckets = table->buckets;
-    HashNode* *new_buckets = (HashNode**)calloc(new_capacity, sizeof(HashNode*));
+    HashNode **old_buckets = table->buckets;
+    HashNode **new_buckets = (HashNode **)calloc(new_capacity, sizeof(HashNode *));
     if (new_buckets == NULL) {
-        REPORT(stderr, "Memory allocation error");
+        ERROR("Memory allocation error");
         return 1;
     }
 
@@ -158,7 +157,7 @@ static int chain_ht_rehash(ChainHashTable *table)
         HashNode *current = old_buckets[i];
         while (current != NULL) {
             HashNode *next_temp = current->next;
-            uint64_t hash = table->hash_func(current->key, new_capacity);
+            uint64_t hash = table->hash_func(current->key) % new_capacity;
             current->next = new_buckets[hash];
             new_buckets[hash] = current;
             current = next_temp;

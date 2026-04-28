@@ -12,41 +12,54 @@
 const double DEFAULT_MAX_LOAD_FACTOR = 10.0;
 const uint64_t DEFAULT_LOOKUP_ITERATIONS = 10ULL;
 const uint64_t DEFAULT_HT_CAPACITY = 64ULL;
+const hash_function DEFAULT_HASH_FUNCTION = hash_string_crc32_naive;
+const equals_function DEFAULT_EQUALS_FUNCTION = string_equals_naive;
 
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
 
 #define BENCHMARK_ASSERT(context_ptr) \
-    assert((context_ptr)->buffer); assert((context_ptr)->keys); CHAIN_HT_ASSERT((context_ptr)->table);
+    assert((context_ptr)->buffer); assert((context_ptr)->keys); CHAIN_HT_ASSERT((context_ptr)->table); \
+    assert((context_ptr)->lookup_indices);
    
 static int fill_hash_table(BenchmarkContext *context);
 static void collect_table_stats(BenchmarkContext* context);
-static void shuffle_keys(char **keys, uint64_t key_count);
 static void run_lookup_benchmark(BenchmarkContext *context);
+uint64_t *generate_shuffled_indices(uint64_t count, uint64_t modulus);
 static char **tokenize_buffer(char *buffer, uint64_t buf_size, uint64_t *token_count);
 static uint64_t count_non_empty_lines(const char *buffer, uint64_t buf_size);
 
 int run_benchmark(BenchmarkContext *context)
 {
-    assert(context);
-    assert(context->buffer);
-    assert(context->keys);
+    BENCHMARK_ASSERT(context);
+    INFO("started benchmark function");
 
-    REPORT(stderr, "filling hash table");
     int status = fill_hash_table(context);
     if (status != 0) {
-        REPORT(stderr, "Error filling the hash table");
+        ERROR("Error filling the hash table");
         return status;
     }
+    INFO("filled hash table");
 
-    REPORT(stderr, "collecting table stats");
+    DEBUG("table: cap - %lu; size - %lu",
+        context->table->capacity, context->table->size);
+    DEBUG("table: max_load_factor - %g", context->table->max_load_factor);
+    DEBUG("lookup iters - %lu", context->lookup_iterations);
+
     collect_table_stats(context);
+    INFO("collected table stats");
 
-    REPORT(stderr, "shuffling keys");
-    shuffle_keys(context->keys, context->key_count);
+    DEBUG("collisions - %lu; max_chain_length - %lu", context->collisions,
+        context->max_chain_length);
 
-    REPORT(stderr, "table: cap - %lu; size - %lu", context->table->capacity, context->table->size);
-    REPORT(stderr, "lookup iters - %lu", context->lookup_iterations);
+    // Прогрев кешей
+    uint64_t temp = context->lookup_iterations;
+    // context->lookup_iterations /= 4;
     run_lookup_benchmark(context);
+    context->lookup_iterations = temp;
+
+    // Основной тест
+    run_lookup_benchmark(context);
+    DEBUG("lookup time: %lu", context->lookup_time);
 
    return 0;
 }
@@ -58,15 +71,28 @@ int create_benchmark_context(BenchmarkContext *context, Args *args)
 
     int status = read_file_to_buffer(&context->buffer, &context->buf_size, args->file_path);
     if (status != 0) {
+        destroy_benchmark_context(context);
         return 1;
     }
     context->keys = tokenize_buffer(context->buffer, context->buf_size, &context->key_count);
     if (context->keys == NULL) {
+        ERROR("Memory allocation error");
+        destroy_benchmark_context(context);
         return 1;
     }
+
     context->lookup_iterations = args->lookup_iterations;
-    context->table = chain_ht_create(DEFAULT_HT_CAPACITY, args->max_load_factor, hash_string_crc64_naive, string_equals);
+    context->lookup_indices = generate_shuffled_indices(context->lookup_iterations, context->key_count);
+    if (context->lookup_indices == NULL) {
+        ERROR("Memory allocation error");
+        destroy_benchmark_context(context);
+        return 1;
+    }
+
+    context->table = chain_ht_create(DEFAULT_HT_CAPACITY, args->max_load_factor,
+        args->hash_func, args->equals_func);
     if (context->table == NULL) {
+        destroy_benchmark_context(context);
         return 1;
     }
 
@@ -84,6 +110,7 @@ void destroy_benchmark_context(BenchmarkContext *context)
 
     free(context->buffer);
     free(context->keys);
+    free(context->lookup_indices);
     if (context->table) {
         chain_ht_destroy(context->table);
     }
@@ -117,23 +144,12 @@ static void collect_table_stats(BenchmarkContext* context)
             curr = curr->next;
         }
 
+        if (chain_length > 0) {
+            context->collisions += chain_length - 1;
+        }
         context->max_chain_length = MAX(context->max_chain_length, chain_length);
     }
-    context->collisions = context->key_count - context->table->size;
 }
-
-static void shuffle_keys(char **keys, uint64_t key_count)
-{
-    srand(42);
-
-    for (uint64_t i = key_count - 1; i > 0; i--) {
-        uint64_t j = (uint64_t)rand() % (i + 1);
-        char *temp = keys[i];
-        keys[i] = keys[j];
-        keys[j] = temp;
-    }
-}
-
 
 static void run_lookup_benchmark(BenchmarkContext *context)
 {
@@ -142,16 +158,26 @@ static void run_lookup_benchmark(BenchmarkContext *context)
     int result = 0;
     uint64_t start_tick = __rdtsc();
     for (uint64_t i = 0; i < context->lookup_iterations; i++) {
-        for (uint64_t k = 0; k < context->key_count; k++) {
-            int status = chain_ht_find(context->table, context->keys[k], &result);
-            assert(status == 0);
-        }
+        uint64_t lookup_idx = context->lookup_indices[i];
+        chain_ht_find(context->table, context->keys[lookup_idx], &result);
     }
     uint64_t end_tick = __rdtsc();
 
-    if (result) {};
-
     context->lookup_time = end_tick - start_tick;
+}
+
+uint64_t *generate_shuffled_indices(uint64_t count, uint64_t modulus)
+{
+    uint64_t *indices = (uint64_t *)calloc(count, sizeof(uint64_t));
+    if (indices == NULL) {
+        return NULL;
+    }
+
+    for (uint64_t i = 0; i < count; i++) {
+        indices[i] = rand() % modulus;
+    }
+
+    return indices;
 }
 
 static char **tokenize_buffer(char *buffer, uint64_t buf_size, uint64_t *token_count)
@@ -162,7 +188,6 @@ static char **tokenize_buffer(char *buffer, uint64_t buf_size, uint64_t *token_c
     uint64_t count = count_non_empty_lines(buffer, buf_size);
     char* *tokens = (char**)calloc(count, sizeof(char*));
     if (tokens == NULL) {
-        REPORT(stderr, "Memory allocation error");
         return NULL;
     }
 

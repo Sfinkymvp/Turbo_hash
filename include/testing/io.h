@@ -3,10 +3,14 @@
 
 #include <stdint.h>
 
+#include "common/hash.h"
+
 typedef struct Args {
     const char *file_path;
     uint64_t lookup_iterations;
     double max_load_factor; 
+    hash_function hash_func;
+    equals_function equals_func;
 } Args;
 
 int parse_args(Args *args, int argc, char *const *argv);

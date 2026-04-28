@@ -4,10 +4,11 @@
 #include <stddef.h>
 #include <stdint.h>
 
-typedef uint64_t (*hash_function)(const char *key, uint64_t modulus);
+typedef uint64_t (*hash_function)(const char *key);
 typedef int (*equals_function)(const char *key1, const char *key2);
 
-int string_equals(const char* str1, const char* str2);
-uint64_t hash_string_crc64_naive(const char *key, uint64_t modulus);
+int string_equals_naive(const char *str1, const char *str2);
+uint64_t hash_string_crc32_naive(const char *key);
+uint64_t hash_string_crc32_intr(const char *key);
 
 #endif // HASH_H

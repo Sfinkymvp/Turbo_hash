@@ -3,12 +3,16 @@
 
 #include <stdint.h>
 
+#include "common/hash.h"
+
 typedef struct Args Args;
 typedef struct ChainHashTable ChainHashTable;
 
 extern const double DEFAULT_MAX_LOAD_FACTOR;
 extern const uint64_t DEFAULT_LOOKUP_ITERATIONS;
 extern const uint64_t DEFAULT_HT_CAPACITY;
+extern const hash_function DEFAULT_HASH_FUNCTION;
+extern const equals_function DEFAULT_EQUALS_FUNCTION;
 
 typedef struct {
     char *buffer;
@@ -18,8 +22,10 @@ typedef struct {
 
     ChainHashTable *table;
 
+    uint64_t* lookup_indices;
     uint64_t lookup_iterations;
     uint64_t lookup_time;
+
     uint64_t collisions;
     uint64_t max_chain_length;
 } BenchmarkContext;
