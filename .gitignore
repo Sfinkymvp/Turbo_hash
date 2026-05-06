@@ -3,3 +3,4 @@ obj/
 venv/
 images/
 *.txt
+.vscode

@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <assert.h>
 
 #include "table/table.h"
@@ -9,6 +10,9 @@
 static int chain_ht_rehash(ChainHashTable *table);
 static void list_destroy(HashNode *head);
 
+#ifdef STRCMP_ASM
+extern int my_strcmp_avx512_asm(const char* str1, const char* str2);
+#endif // STRCMP_ASM
 
 ChainHashTable *chain_ht_create(uint64_t capacity, double max_load_factor, hash_function hash, equals_function equals)
 {
@@ -36,26 +40,39 @@ ChainHashTable *chain_ht_create(uint64_t capacity, double max_load_factor, hash_
     return table;
 }
 
-
 int chain_ht_insert(ChainHashTable *table, const char *key, int value)
 {
     CHAIN_HT_ASSERT(table); assert(key);
 
     if ((double)table->size / table->capacity >= table->max_load_factor) {
-    int status = chain_ht_rehash(table);
-    if (status != 0) {
-        return status;
-    }
+        int status = chain_ht_rehash(table);
+        if (status != 0) {
+            return status;
+        }
     }
 
-    size_t hash = table->hash_func(key) % table->capacity;
+#ifdef HASH_INTR
+    uint64_t hash = hash_string_crc32_intr(key) & (table->capacity - 1);
+#else 
+    uint64_t hash = hash_string_crc32_naive(key) & (table->capacity - 1);
+#endif // HASH_INTR
+
     HashNode **head = &table->buckets[hash];
 
     HashNode *current = *head;
     while (current) {
-        if (table->equals_func(current->key, key)) {
+#ifdef STRCMP_ASM
+        int res = my_strcmp_avx512_asm(current->key, key);
+#elif defined STRCMP_INLINE
+        int res = my_strcmp_inline_evex(current->key, key);
+#else
+        int res = strcmp(current->key, key);
+#endif // STRCMP_ASM
+
+        if (res) {
             return 0;
         }
+ 
         current = current->next;
     }
 
@@ -65,46 +82,74 @@ int chain_ht_insert(ChainHashTable *table, const char *key, int value)
         return 1;
     }
     new_node->key = key;
-    new_node->value = value;
     new_node->next = *head;
+    new_node->value = value;
 
     *head = new_node;
     table->size++;
     return 0;  
 }
 
-
 int chain_ht_find(const ChainHashTable *table, const char *key, int *result)
 {
     CHAIN_HT_ASSERT(table); assert(key); assert(result);
 
-    uint64_t hash = table->hash_func(key) % table->capacity;
+#ifdef HASH_INTR
+    uint64_t hash = hash_string_crc32_intr(key) & (table->capacity - 1);
+#elif defined INDIRECT
+    uint64_t hash = table->hash_func(key) & (table->capacity - 1);
+#else 
+    uint64_t hash = hash_string_crc32_naive(key) & (table->capacity - 1);
+#endif // HASH_INTR
+
     HashNode *current = table->buckets[hash];
 
     while (current != NULL) {
-        if (table->equals_func(current->key, key)) {
+#ifdef STRCMP_ASM
+        int res = my_strcmp_avx512_asm(current->key, key);
+#elif defined STRCMP_INLINE
+        int res = my_strcmp_inline_evex(current->key, key);
+#elif defined INDIRECT
+        int res = table->equals_func(current->key, key);
+#else
+        int res = strcmp(current->key, key);
+#endif // STRCMP_ASM
+
+        if (res == 0) {
             *result = current->value;
             return 0;
         }
+        
         current = current->next;
     }
-
     return 1;
 }
-
 
 int chain_ht_remove(ChainHashTable *table, const char *key)
 {
     CHAIN_HT_ASSERT(table); assert(key);
 
-    uint64_t hash = table->hash_func(key) % table->capacity;
+#ifdef HASH_INTR
+    uint64_t hash = hash_string_crc32_intr(key) & (table->capacity - 1);
+#else 
+    uint64_t hash = hash_string_crc32_naive(key) & (table->capacity - 1);
+#endif // HASH_INTR
+
     HashNode **head = &table->buckets[hash];
 
     HashNode *current = *head;
     HashNode *prev = NULL;
 
     while (current != NULL) {
-        if (table->equals_func(current->key, key)) {
+#ifdef STRCMP_ASM
+        int res = my_strcmp_avx512_asm(current->key, key);
+#elif defined STRCMP_INLINE
+        int res = my_strcmp_inline_evex(current->key, key);
+#else
+        int res = strcmp(current->key, key);
+#endif // STRCMP_ASM
+
+        if (res) {
             if (prev == NULL) {
                 *head = current->next;
             } else {
@@ -122,7 +167,6 @@ int chain_ht_remove(ChainHashTable *table, const char *key)
 
     return 1;
 }
-
 
 void chain_ht_destroy(ChainHashTable *table)
 {
@@ -157,7 +201,13 @@ static int chain_ht_rehash(ChainHashTable *table)
         HashNode *current = old_buckets[i];
         while (current != NULL) {
             HashNode *next_temp = current->next;
-            uint64_t hash = table->hash_func(current->key) % new_capacity;
+
+#ifndef HASH_INTR
+            uint64_t hash = hash_string_crc32_intr(current->key) & (table->capacity - 1);
+#else 
+            uint64_t hash = hash_string_crc32_naive(current->key) & (table->capacity - 1);
+#endif // HASH_INTR
+
             current->next = new_buckets[hash];
             new_buckets[hash] = current;
             current = next_temp;
@@ -169,7 +219,6 @@ static int chain_ht_rehash(ChainHashTable *table)
     free(old_buckets);
     return 0;
 }
-
 
 static void list_destroy(HashNode *head)
 {

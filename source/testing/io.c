@@ -10,6 +10,8 @@
 #include "common/report.h"
 #include "testing/benchmark.h"
 
+static const uint64_t ZMM_FRAME_SIZE = 64UL;
+
 static uint64_t get_file_size(FILE *file);
 
 int parse_args(Args *args, int argc, char *const *argv)
@@ -25,7 +27,7 @@ int parse_args(Args *args, int argc, char *const *argv)
 
     char *end_ptr = NULL;
     int opt = 0;
-    while ((opt = getopt(argc, argv, "l:f:i:1")) != -1) {
+    while ((opt = getopt(argc, argv, "l:f:i:12")) != -1) {
         switch (opt) {
             case 'l': {
                 args->max_load_factor = strtod(optarg, &end_ptr);
@@ -48,6 +50,10 @@ int parse_args(Args *args, int argc, char *const *argv)
             }
             case '1': {
                 args->hash_func = hash_string_crc32_intr;
+                break;
+            }
+            case '2': {
+                break;
             }
             default: {
                 break;
@@ -89,7 +95,7 @@ int read_file_to_buffer(char **buffer, uint64_t *buffer_size, const char *file_p
         return 1;
     }
 
-    temp = (char *)calloc(file_size + 1, sizeof(char));
+    temp = (char *)calloc(file_size + 1 + ZMM_FRAME_SIZE, sizeof(char));
     if (temp == NULL) {
         ERROR("Memory allocation error");
         fclose(file);

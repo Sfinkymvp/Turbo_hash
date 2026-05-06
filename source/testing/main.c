@@ -1,4 +1,5 @@
 #include <stdio.h>
+// #include <ittnotify.h>
 
 #include "common/report.h"
 #include "testing/io.h"
@@ -6,9 +7,8 @@
 
 int main(int argc, char *const *argv)
 {
-#ifdef MY_STRCMP
-    INFO("my strcmp on");
-#endif
+    // __itt_pause();
+
     BenchmarkContext context = {};
     Args args = {};
     int status = 0;
@@ -37,7 +37,7 @@ int main(int argc, char *const *argv)
         goto cleanup;
     }
     INFO("benchmark finished");
-    printf("time: %lu\n", context.lookup_time);
+    printf("%lu\n", context.lookup_time);
 
 cleanup:
     destroy_benchmark_context(&context); 

@@ -8,8 +8,8 @@
 typedef struct HashNode HashNode;
 struct HashNode {
     const char *key;
-    int value;
     HashNode *next;
+    int value;
 };
 
 typedef struct ChainHashTable {
@@ -25,13 +25,42 @@ typedef struct ChainHashTable {
     assert((table_ptr)->buckets); assert((table_ptr)->hash_func)
 
 ChainHashTable *chain_ht_create(uint64_t capacity, double max_load_factor, hash_function hash, equals_function equals);
-
 int chain_ht_insert(ChainHashTable *table, const char *key, int value);
-
 int chain_ht_find(const ChainHashTable *table, const char *key, int *result);
-
 int chain_ht_remove(ChainHashTable *table, const char *key);
-
 void chain_ht_destroy(ChainHashTable *table);
 
+static inline int my_strcmp_inline_evex(const char *s1, const char *s2) {
+    int res;
+
+    __asm__ volatile (
+        ".intel_syntax noprefix\n\t"
+        "vpxord zmm2, zmm2, zmm2\n"
+        "1:\n\t"
+        "vmovdqu8 zmm0, [%[s1]]\n\t"
+        "vmovdqu8 zmm1, [%[s2]]\n\t"
+        
+        "vpcmpub k1, zmm0, zmm1, 4\n\t" 
+        "vpcmpub k3, zmm0, zmm2, 0\n\t" 
+        "korq k4, k3, k1\n\t"
+        "kortestq k4, k4\n\t"
+        "jne 2f\n\t"
+
+        "add %[s1], 64\n\t"
+        "add %[s2], 64\n\t"
+        "jmp 1b\n"
+
+        "2:\n\t"
+        "kmovq %q[res], k1\n\t"
+        "test %q[res], %q[res]\n\t"
+        "setnz %b[res]\n\t"  
+        "movzx %[res], %b[res]\n\t"
+        ".att_syntax prefix"
+        : [res] "=&r" (res), [s1] "+r" (s1), [s2] "+r" (s2)
+        : 
+        : "zmm0", "zmm1", "zmm2", "k1", "k3", "k4", "cc", "memory"
+    );
+
+    return res;
+}
 #endif // TABLE_H

@@ -6,31 +6,110 @@ SCRIPTS_DIR   = scripts
 REPORTS_DIR   = reports
 IMAGES_DIR    = images
 DATA_DIR 	  = data
-SUBMODULE_DIR = Array_based_list
+UPROF_DIR  	  = /opt/AMDuProf_5.2-606
 
 CC 			  = gcc
-CFLAGS     	  = -I$(INC_DIR) -Wall -Wextra -Werror\
-				-O3 -march=native -g
+CFLAGS     	  = -I$(INC_DIR) -Wall -Wextra -Werror \
+				-march=native -g -I$(UPROF_DIR)/include -O3
+
+LDFLAGS       = -L$(UPROF_DIR)/lib/x64/ 
+LDLIBS 		  = -lAMDProfileController -lrt -pthread
+
 ASMFLAGS 	  = -masm=intel -march=native
 ASM_OFILES    = 
 
 GENFLAGS 	  = -I$(INC_DIR) -O3 
 
-BENCH_TARGET_FILE   = bench
+BENCH_TARGET_FILE   := bench
 GEN_TARGET_FILE     = gen
 
 # DATA_GEN_SCRIPT = data_generator.sh
 # PLOT_GEN_SCRIPT = plot_generator.py
 
-ifdef CMP
-	OBJ_DIR = $(BASE_OBJ_DIR)/$(CMP)
-	ASM_OFILES += $(OBJ_DIR)/common/$(CMP).o
-	CFLAGS += -DMY_STRCMP
-	BENCH_TARGET_FILE = bench_$(CMP)
-else
-	OBJ_DIR = $(BASE_OBJ_DIR)
-	BENCH_TARGET_FILE = bench_libc
+ifeq ($(INDIRECT), ON)
+	OPTI = DEFAULT
+    CFLAGS += -DINDIRECT
+    BENCH_TARGET_FILE := $(BENCH_TARGET_FILE)_indirect
 endif 
+
+ifdef OPTI
+    ifeq ($(OPTI), DEFAULT)
+        undefine HASH
+        undefine CMP
+		BENCH_TARGET_FILE := $(BENCH_TARGET_FILE)_default
+	else ifeq ($(OPTI), LEVEL0)
+		CFLAGS += -O3
+		undefine HASH
+		undefine CMP
+		BENCH_TARGET_FILE := $(BENCH_TARGET_FILE)_level0
+    else ifeq ($(OPTI), LEVEL1)
+        CFLAGS += -O3
+        HASH = hash
+        undefine CMP
+		BENCH_TARGET_FILE := $(BENCH_TARGET_FILE)_level1
+    else ifeq ($(OPTI), LEVEL2)
+        CFLAGS += -O3
+        HASH = hash
+		LEN = inline
+		undefine CMP
+		BENCH_TARGET_FILE := $(BENCH_TARGET_FILE)_level2
+	else ifeq ($(OPTI), LEVEL3)
+        CFLAGS += -O3
+        HASH = hash
+		LEN = inline
+		CMP = inline
+		BENCH_TARGET_FILE := $(BENCH_TARGET_FILE)_level3
+    endif
+endif
+
+ifdef HASH
+    CFLAGS += -DHASH_INTR
+	ifndef OPTI
+		BENCH_TARGET_FILE := $(BENCH_TARGET_FILE)_intr
+	endif
+endif 
+
+ifdef LEN
+	ifeq ($(LEN), inline)
+		CFLAGS += -DSTRLEN_INLINE
+		ifndef OPTI
+			BENCH_TARGET_FILE := $(BENCH_TARGET_FILE)_inlinelen
+		endif
+	else 
+		CFLAGS += -DSTRLEN_ASM
+		ifndef OPTI
+			BENCH_TARGET_FILE := $(BENCH_TARGET_FILE)_$(LEN)
+		endif
+	endif
+endif 
+
+ifdef CMP
+    ifeq ($(CMP), inline)
+        CFLAGS += -DSTRCMP_INLINE
+		ifndef OPTI
+			BENCH_TARGET_FILE := $(BENCH_TARGET_FILE)_inlinecmp
+		endif
+    else
+        CFLAGS += -DSTRCMP_ASM
+		ifndef OPTI
+			BENCH_TARGET_FILE := $(BENCH_TARGET_FILE)_$(CMP)
+		endif
+    endif
+endif 
+
+OBJ_DIR := $(BASE_OBJ_DIR)/$(BENCH_TARGET_FILE)
+
+ifdef LEN
+	ifneq ($(LEN), inline)
+		ASM_OFILES += $(OBJ_DIR)/common/$(LEN).o
+	endif
+endif 
+
+ifdef CMP
+    ifneq ($(CMP), inline)
+        ASM_OFILES += $(OBJ_DIR)/common/$(CMP).o
+    endif
+endif
 
 # Функция для получения объектных файлов на основе .c файлов из поддиректорий $(SRC_DIR)
 # В качестве единственного аргумента передается поддиректория в $(SRC_DIR)
@@ -56,7 +135,7 @@ endif
 .PHONY: all run clean
 
 all: $(OFILES) $(ASM_OFILES) | $(BIN_DIR)
-	@$(CC) $(CFLAGS) $^ -o $(BIN_DIR)/$(BENCH_TARGET_FILE)
+	@$(CC) $(CFLAGS) $^ -o $(BIN_DIR)/$(BENCH_TARGET_FILE) $(LDFLAGS) $(LDLIBS)
 
 run: 
 	@./$(BIN_DIR)/$(TARGET_FILE)
@@ -66,7 +145,7 @@ gen: $(GEN_OFILES) | $(BIN_DIR)
 
 clean:
 	@rm -rf $(BIN_DIR)
-	@rm -rf $(OBJ_DIR)
+	@rm -rf $(BASE_OBJ_DIR)
 
 $(GEN_OFILES): $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c | $(OBJ_DIR)
 	@mkdir -p $(dir $@)

@@ -11,8 +11,6 @@
 .equ CMP_EQ,    0
 .equ CMP_NEQ,   4
 
-# строка 1 в rdi
-# строка 2 в rsi
 my_strcmp:
     vpxord      zmm2, zmm2, zmm2
 .main_loop:
@@ -31,9 +29,8 @@ my_strcmp:
     cmp         r10, ZMM_SIZE
     jb          .edge_case_handling
 
-# Сравнение блоками по 64 байта
-    vmovdqu64   zmm0, [rdi] 
-    vmovdqu64   zmm1, [rsi]
+    vmovdqu8   zmm0, [rdi] 
+    vmovdqu8   zmm1, [rsi]
 
     vpcmpub     k1, zmm0, zmm1, CMP_EQ
     knotq       k2, k1
@@ -49,23 +46,16 @@ my_strcmp:
     jmp         .main_loop
 
 .edge_case_handling:
-# В rax расстояние до новой страницы у строки из rdi
-# В r10 расстояние до новой страницы у строки из rsi
     mov         rdx, rax
     cmp         rax, r10 
     cmova       rdx, r10
 
-.end_of_condition:
-# В rcx наименьшее из расстояний до новой страницы среди строк
-# 0 < rcx < 64
-# Нам нужно получить число, у которого первые rdx бит единичные
     mov         rax, -1
     mov         rcx, ZMM_SIZE
     sub         rcx, rdx
     shr         rax, cl
     kmovq       k1, rax
 
-# Сравнение блоками < 64 байт
     vmovdqu8    zmm0 {k1}{z}, [rdi]
     vmovdqu8    zmm1 {k1}{z}, [rsi]
 
@@ -82,15 +72,10 @@ my_strcmp:
     add         rsi, rdx
     jmp         .main_loop
 
-
 .found_difference:
     kmovq       rax, k4
-    tzcnt       rcx, rax
+    test        rax, rax
+    setnz       al
+    movzx       rax al
 
-    movzx       eax, byte ptr [rdi + rcx]
-    movzx       edx, byte ptr [rsi + rcx]
-    sub         eax, edx
-
-.exit:
-    vzeroupper
     ret

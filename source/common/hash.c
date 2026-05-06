@@ -76,20 +76,18 @@ static const unsigned int crc32_table[] =
     0xbcb4666d, 0xb8757bda, 0xb5365d03, 0xb1f740b4
 };
 
-#ifdef MY_STRCMP
-extern int my_strcmp(const char* str1, const char* str2);
-#endif // MY_STRCMP
+#ifdef STRLEN_ASM
+extern size_t my_strlen_avx512_asm(const char *str);
+#endif // STRLEN_ASM
+
+static inline size_t my_strlen_inline_asm(const char *str);
 
 int string_equals_naive(const char *str1, const char *str2)
 {
     assert(str1);
     assert(str2);
 
-#ifdef MY_STRCMP
-    return my_strcmp(str1, str2) == 0;
-#else
-    return strcmp(str1, str2) == 0;
-#endif // FASTCMP
+    return strcmp(str1, str2);
 }
 
 uint64_t hash_string_crc32_naive(const char *key)
@@ -110,37 +108,40 @@ uint64_t hash_string_crc32_intr(const char *key)
 {
     assert(key);
 
+#ifdef STRLEN_INLINE
+    int len = my_strlen_inline_asm(key);
+#elif defined STRLEN_ASM
+    int len = my_strlen_avx512_asm(key);
+#else
     int len = strlen(key);
+#endif // STRLEN_INLINE
 
-    uint64_t crc64 = (uint64_t)CRC32_INIT_VALUE;
-
+    uint64_t crc64 = (uint64_t)0xFFFFFFFF;
+    
     int i = 0;
-    for (; i < len - len % 8; i += 8) {
-        uint64_t chunk64 = 0;
-        memcpy(&chunk64, key + i, 8);
-        crc64 = _mm_crc32_u64(crc64, chunk64);
+    for (; i <= len - 8; i += 8) {
+        crc64 = _mm_crc32_u64(crc64, *(const uint64_t *)(key + i));
     }
 
     uint32_t crc32 = (uint32_t)crc64;
-    if (len % 8 >= 4) {
-        uint32_t chunk32 = 0;
-        memcpy(&chunk32, key + i, 4);
-        crc32 = _mm_crc32_u32(crc32, chunk32);
+    int remainder = len - i;
+
+    if (remainder >= 4) {
+        crc32 = _mm_crc32_u32(crc32, *(const uint32_t *)(key + i));
         i += 4;
+        remainder -= 4;
     }
 
-    if (len % 4 >= 2) {
-        uint16_t chunk16 = 0;
-        memcpy(&chunk16, key + i, 2);
-        crc32 = _mm_crc32_u16(crc32, chunk16);
+    if (remainder >= 2) {
+        crc32 = _mm_crc32_u16(crc32, *(const uint16_t *)(key + i));
         i += 2;
+        remainder -= 2;
     }
     
-    if (len % 2 >= 1) {
-        uint8_t chunk8 = key[i];
-        crc32 = _mm_crc32_u8(crc32, chunk8);
-        i++;
+    if (remainder) {
+        crc32 = _mm_crc32_u8(crc32, *(const uint8_t *)(key + i));
     }
 
     return (uint64_t)crc32;
 }
+

@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <immintrin.h>
+// #include <ittnotify.h>
+#include <AMDProfileController.h>
 #include <assert.h>
 
 #include "testing/benchmark.h"
@@ -58,10 +60,17 @@ int run_benchmark(BenchmarkContext *context)
     context->lookup_iterations = temp;
 
     // Основной тест
+    // __itt_resume();
+    amdProfileResume();
+
     run_lookup_benchmark(context);
+
+    amdProfilePause();
+    // __itt_pause();
+
     DEBUG("lookup time: %lu", context->lookup_time);
 
-   return 0;
+    return 0;
 }
 
 int create_benchmark_context(BenchmarkContext *context, Args *args)
