@@ -23,10 +23,11 @@ const equals_function DEFAULT_EQUALS_FUNCTION = string_equals_naive;
     assert((context_ptr)->buffer); assert((context_ptr)->keys); CHAIN_HT_ASSERT((context_ptr)->table); \
     assert((context_ptr)->lookup_indices);
    
+static void run_lookup_benchmark(BenchmarkContext *context);
 static int fill_hash_table(BenchmarkContext *context);
 static void collect_table_stats(BenchmarkContext* context);
-static void run_lookup_benchmark(BenchmarkContext *context);
-uint64_t *generate_shuffled_indices(uint64_t count, uint64_t modulus);
+static uint64_t *generate_shuffled_indices(uint64_t count, uint64_t modulus);
+static char** generate_random_queries(char **keys, uint64_t *indices, uint64_t count);
 static char **tokenize_buffer(char *buffer, uint64_t buf_size, uint64_t *token_count);
 static uint64_t count_non_empty_lines(const char *buffer, uint64_t buf_size);
 
@@ -54,23 +55,33 @@ int run_benchmark(BenchmarkContext *context)
         context->max_chain_length);
 
     // Прогрев кешей
-    uint64_t temp = context->lookup_iterations;
-    // context->lookup_iterations /= 4;
     run_lookup_benchmark(context);
-    context->lookup_iterations = temp;
 
     // Основной тест
-    // __itt_resume();
     amdProfileResume();
 
     run_lookup_benchmark(context);
 
     amdProfilePause();
-    // __itt_pause();
 
     DEBUG("lookup time: %lu", context->lookup_time);
 
     return 0;
+}
+
+static void run_lookup_benchmark(BenchmarkContext *context)
+{
+    BENCHMARK_ASSERT(context);
+
+    int result = 0;
+    uint64_t start_tick = __rdtsc();
+    for (uint64_t i = 0; i < context->lookup_iterations; i++) {
+        uint64_t lookup_idx = context->lookup_indices[i];
+        chain_ht_find(context->table, context->test_queries[lookup_idx], &result);
+    }
+    uint64_t end_tick = __rdtsc();
+
+    context->lookup_time = end_tick - start_tick;
 }
 
 int create_benchmark_context(BenchmarkContext *context, Args *args)
@@ -98,6 +109,14 @@ int create_benchmark_context(BenchmarkContext *context, Args *args)
         return 1;
     }
 
+    context->test_queries = generate_random_queries(context->keys, 
+        context->lookup_indices, context->lookup_iterations);
+    if (context->test_queries == NULL) {
+        ERROR("Memory allocation error");
+        destroy_benchmark_context(context);
+        return 1;
+    }
+
     context->table = chain_ht_create(DEFAULT_HT_CAPACITY, args->max_load_factor,
         args->hash_func, args->equals_func);
     if (context->table == NULL) {
@@ -120,6 +139,7 @@ void destroy_benchmark_context(BenchmarkContext *context)
     free(context->buffer);
     free(context->keys);
     free(context->lookup_indices);
+    free(context->test_queries);
     if (context->table) {
         chain_ht_destroy(context->table);
     }
@@ -160,22 +180,7 @@ static void collect_table_stats(BenchmarkContext* context)
     }
 }
 
-static void run_lookup_benchmark(BenchmarkContext *context)
-{
-    BENCHMARK_ASSERT(context);
-
-    int result = 0;
-    uint64_t start_tick = __rdtsc();
-    for (uint64_t i = 0; i < context->lookup_iterations; i++) {
-        uint64_t lookup_idx = context->lookup_indices[i];
-        chain_ht_find(context->table, context->keys[lookup_idx], &result);
-    }
-    uint64_t end_tick = __rdtsc();
-
-    context->lookup_time = end_tick - start_tick;
-}
-
-uint64_t *generate_shuffled_indices(uint64_t count, uint64_t modulus)
+static uint64_t *generate_shuffled_indices(uint64_t count, uint64_t modulus)
 {
     uint64_t *indices = (uint64_t *)calloc(count, sizeof(uint64_t));
     if (indices == NULL) {
@@ -187,6 +192,24 @@ uint64_t *generate_shuffled_indices(uint64_t count, uint64_t modulus)
     }
 
     return indices;
+}
+
+static char** generate_random_queries(char **keys, uint64_t *indices, uint64_t count)
+{
+    assert(keys);
+    assert(indices);
+
+    char **random_queries = (char **)calloc(count, sizeof(char *));
+    if (random_queries == NULL) {
+        return NULL;
+    }
+
+    for (uint64_t i = 0; i < count; i++) {
+        uint64_t index = indices[i];
+        random_queries[i] = keys[index] + index % 2;
+    }
+
+    return random_queries;
 }
 
 static char **tokenize_buffer(char *buffer, uint64_t buf_size, uint64_t *token_count)
