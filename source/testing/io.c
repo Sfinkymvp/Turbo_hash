@@ -27,7 +27,7 @@ int parse_args(Args *args, int argc, char *const *argv)
 
     char *end_ptr = NULL;
     int opt = 0;
-    while ((opt = getopt(argc, argv, "l:f:i:12")) != -1) {
+    while ((opt = getopt(argc, argv, "l:f:i:s:")) != -1) {
         switch (opt) {
             case 'l': {
                 args->max_load_factor = strtod(optarg, &end_ptr);
@@ -40,19 +40,21 @@ int parse_args(Args *args, int argc, char *const *argv)
             case 'f': {
                 args->file_path = optarg;
                 break;
-            } case 'i': {
-                args->lookup_iterations = strtoull(optarg, &end_ptr, 10);
+            }
+            case 'i': {
+                args->lookup_iterations = strtoul(optarg, &end_ptr, 10);
                 if (*end_ptr != '\0') {
-                    ERROR("invalid iteration count");
+                    ERROR("invalid iterations count");
                     return 1;
                 }
                 break;
             }
-            case '1': {
-                args->hash_func = hash_string_crc32_intr;
-                break;
-            }
-            case '2': {
+            case 's': {
+                args->sample_count = strtoul(optarg, &end_ptr, 10);
+                if (*end_ptr != '\0') {
+                    ERROR("invalid sample count");
+                    return 1;
+                }
                 break;
             }
             default: {

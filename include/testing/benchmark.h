@@ -29,10 +29,14 @@ typedef struct {
 
     uint64_t collisions;
     uint64_t max_chain_length;
+
+    uint64_t *results;
+    uint64_t sample_count;
 } BenchmarkContext;
 
 int run_benchmark(BenchmarkContext *context);
 int create_benchmark_context(BenchmarkContext *context, Args *args);
+void print_results(BenchmarkContext *context);
 void destroy_benchmark_context(BenchmarkContext *context);
 
 #endif // BENCHMARK_H

@@ -9,6 +9,7 @@ typedef struct Args {
     const char *file_path;
     uint64_t lookup_iterations;
     double max_load_factor; 
+    uint64_t sample_count;
     hash_function hash_func;
     equals_function equals_func;
 } Args;

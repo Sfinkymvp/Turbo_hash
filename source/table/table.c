@@ -69,7 +69,7 @@ int chain_ht_insert(ChainHashTable *table, const char *key, int value)
         int res = strcmp(current->key, key);
 #endif // STRCMP_ASM
 
-        if (res) {
+        if (res == 0) {
             return 0;
         }
  
@@ -149,7 +149,7 @@ int chain_ht_remove(ChainHashTable *table, const char *key)
         int res = strcmp(current->key, key);
 #endif // STRCMP_ASM
 
-        if (res) {
+        if (res == 0) {
             if (prev == NULL) {
                 *head = current->next;
             } else {

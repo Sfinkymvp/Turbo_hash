@@ -10,7 +10,7 @@ UPROF_DIR  	  = /opt/AMDuProf_5.2-606
 
 CC 			  = gcc
 CFLAGS     	  = -I$(INC_DIR) -Wall -Wextra -Werror \
-				-march=native -g -I$(UPROF_DIR)/include -O3
+				-march=native -g -I$(UPROF_DIR)/include
 
 LDFLAGS       = -L$(UPROF_DIR)/lib/x64/ 
 LDLIBS 		  = -lAMDProfileController -lrt -pthread
@@ -44,20 +44,21 @@ ifdef OPTI
 		BENCH_TARGET_FILE := $(BENCH_TARGET_FILE)_level0
     else ifeq ($(OPTI), LEVEL1)
         CFLAGS += -O3
-        HASH = hash
-        undefine CMP
+		undefine HASH
+		CMP = inline
+		undefine LEN
 		BENCH_TARGET_FILE := $(BENCH_TARGET_FILE)_level1
     else ifeq ($(OPTI), LEVEL2)
         CFLAGS += -O3
         HASH = hash
-		undefine LEN
 		CMP = inline
+		undefine LEN
 		BENCH_TARGET_FILE := $(BENCH_TARGET_FILE)_level2
 	else ifeq ($(OPTI), LEVEL3)
         CFLAGS += -O3
         HASH = hash
-		LEN = inline
 		CMP = inline
+		LEN = inline
 		BENCH_TARGET_FILE := $(BENCH_TARGET_FILE)_level3
     endif
 endif

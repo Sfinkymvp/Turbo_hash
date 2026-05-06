@@ -21,9 +21,10 @@ const equals_function DEFAULT_EQUALS_FUNCTION = string_equals_naive;
 
 #define BENCHMARK_ASSERT(context_ptr) \
     assert((context_ptr)->buffer); assert((context_ptr)->keys); CHAIN_HT_ASSERT((context_ptr)->table); \
-    assert((context_ptr)->lookup_indices);
+    assert((context_ptr)->lookup_indices); assert((context_ptr)->test_queries); \
+    assert((context_ptr)->results);
    
-static void run_lookup_benchmark(BenchmarkContext *context);
+static uint64_t run_lookup_sample(BenchmarkContext *context);
 static int fill_hash_table(BenchmarkContext *context);
 static void collect_table_stats(BenchmarkContext* context);
 static uint64_t *generate_shuffled_indices(uint64_t count, uint64_t modulus);
@@ -53,35 +54,34 @@ int run_benchmark(BenchmarkContext *context)
 
     DEBUG("collisions - %lu; max_chain_length - %lu", context->collisions,
         context->max_chain_length);
+    DEBUG("current load factor: %lf", (double)context->table->size / context->table->capacity);
 
+    DEBUG("key count: %lu", context->key_count);
     // Прогрев кешей
-    run_lookup_benchmark(context);
+    run_lookup_sample(context);
 
     // Основной тест
-    amdProfileResume();
-
-    run_lookup_benchmark(context);
-
-    amdProfilePause();
-
-    DEBUG("lookup time: %lu", context->lookup_time);
+    for (uint64_t i = 0; i < context->sample_count; i++) {
+        amdProfileResume();
+        context->results[i] = run_lookup_sample(context);
+        amdProfilePause();
+    }
 
     return 0;
 }
 
-static void run_lookup_benchmark(BenchmarkContext *context)
+static uint64_t run_lookup_sample(BenchmarkContext *context)
 {
     BENCHMARK_ASSERT(context);
 
     int result = 0;
     uint64_t start_tick = __rdtsc();
     for (uint64_t i = 0; i < context->lookup_iterations; i++) {
-        uint64_t lookup_idx = context->lookup_indices[i];
-        chain_ht_find(context->table, context->test_queries[lookup_idx], &result);
+        chain_ht_find(context->table, context->test_queries[i], &result);
     }
     uint64_t end_tick = __rdtsc();
 
-    context->lookup_time = end_tick - start_tick;
+    return end_tick - start_tick;
 }
 
 int create_benchmark_context(BenchmarkContext *context, Args *args)
@@ -117,6 +117,14 @@ int create_benchmark_context(BenchmarkContext *context, Args *args)
         return 1;
     }
 
+    context->sample_count = args->sample_count;
+    context->results = (uint64_t *)calloc(context->sample_count, sizeof(uint64_t));
+    if (context->results == NULL) {
+        ERROR("Memory allocation error");
+        destroy_benchmark_context(context);
+        return 1;
+    }
+
     context->table = chain_ht_create(DEFAULT_HT_CAPACITY, args->max_load_factor,
         args->hash_func, args->equals_func);
     if (context->table == NULL) {
@@ -132,6 +140,15 @@ int create_benchmark_context(BenchmarkContext *context, Args *args)
     return 0;
 }
 
+void print_results(BenchmarkContext *context)
+{
+    BENCHMARK_ASSERT(context);
+
+    for (uint64_t i = 0; i < context->sample_count; i++) {
+        printf("%lu\n", context->results[i]);
+    }
+}
+
 void destroy_benchmark_context(BenchmarkContext *context)
 {
     assert(context);
@@ -140,6 +157,7 @@ void destroy_benchmark_context(BenchmarkContext *context)
     free(context->keys);
     free(context->lookup_indices);
     free(context->test_queries);
+    free(context->results);
     if (context->table) {
         chain_ht_destroy(context->table);
     }
