@@ -34,27 +34,27 @@ static inline int my_strcmp_inline_evex(const char *s1, const char *s2) {
     int res;
 
     __asm__ volatile (
-        ".intel_syntax noprefix\n\t"
+        ".intel_syntax noprefix;"
         "vpxord zmm2, zmm2, zmm2\n"
-        "1:\n\t"
-        "vmovdqu8 zmm0, [%[s1]]\n\t"
-        "vmovdqu8 zmm1, [%[s2]]\n\t"
+        "1:;"
+        "vmovdqu8 zmm0, [%[s1]];"
+        "vmovdqu8 zmm1, [%[s2]];"
         
-        "vpcmpub k1, zmm0, zmm1, 4\n\t" 
-        "vpcmpub k3, zmm0, zmm2, 0\n\t" 
-        "korq k4, k3, k1\n\t"
-        "kortestq k4, k4\n\t"
-        "jne 2f\n\t"
+        "vpcmpub k1, zmm0, zmm1, 4;" 
+        "vpcmpub k3, zmm0, zmm2, 0;" 
+        "korq k4, k3, k1;"
+        "kortestq k4, k4;"
+        "jne 2f;"
 
-        "add %[s1], 64\n\t"
-        "add %[s2], 64\n\t"
+        "add %[s1], 64;"
+        "add %[s2], 64;"
         "jmp 1b\n"
 
-        "2:\n\t"
-        "kmovq %q[res], k1\n\t"
-        "test %q[res], %q[res]\n\t"
-        "setnz %b[res]\n\t"  
-        "movzx %[res], %b[res]\n\t"
+        "2:;"
+        "kmovq %q[res], k1;"
+        "test %q[res], %q[res];"
+        "setnz %b[res];"  
+        "movzx %[res], %b[res];"
         ".att_syntax prefix"
         : [res] "=&r" (res), [s1] "+r" (s1), [s2] "+r" (s2)
         : 

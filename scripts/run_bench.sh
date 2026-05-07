@@ -50,7 +50,7 @@ echo "--- Rebuilding the project ---"
 make clean
 for level in "${levels_order[@]}"; do
     make DEBUG=OFF OPTI="$level" || {
-        echo "ERROR: compilation failed!"
+        echo "[ERROR] compilation failed!"
         exit 1
     }
 done
@@ -58,7 +58,7 @@ done
 # Остывание процессора
 echo "--- Cooling down after rebuilding ---"
 
-sleep 10
+sleep 5
 
 # Стадия тестирования
 echo "--- Running the benchmark ---"
@@ -83,7 +83,7 @@ for level in "${levels_order[@]}"; do
 
     echo -e "\t- Cooling down after startup"
 
-    # sleep 10
+    sleep 5
 done
 
 clear_vars
