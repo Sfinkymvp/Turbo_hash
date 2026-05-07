@@ -2,5 +2,6 @@ bin/
 obj/
 venv/
 images/
+reports/
 *.txt
 .vscode
