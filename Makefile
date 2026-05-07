@@ -147,6 +147,8 @@ gen: $(GEN_OFILES) | $(BIN_DIR)
 clean:
 	@rm -rf $(BIN_DIR)
 	@rm -rf $(BASE_OBJ_DIR)
+	@rm -rf $(REPORTS_DIR)
+	@rm -rf $(IMAGES_DIR)
 
 $(GEN_OFILES): $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c | $(OBJ_DIR)
 	@mkdir -p $(dir $@)

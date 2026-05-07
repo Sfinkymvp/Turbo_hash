@@ -7,10 +7,10 @@ CORE_ID=3
 MONITOR_INTERVAL=0.25
 
 DATA_FILE="data/word_forms.txt"
-RESULTS_DIR="reports"
+RESULT_DIR="reports"
+SCRIPT_DIR="scripts"
+IMAGE_DIR="images"
 BINARY_DIR="bin"
-
-OLD_PARANOID=$(cat /proc/sys/kernel/perf_event_paranoid)
 
 declare -A binaries
 binaries["DEFAULT"]="bench_default"
@@ -63,29 +63,42 @@ sleep 10
 # Стадия тестирования
 echo "--- Running the benchmark ---"
 
-mkdir -p "$RESULTS_DIR"
+mkdir -p "$RESULT_DIR"
 
 for level in "${levels_order[@]}"; do
     binary_name="${binaries[$level]}"
 
     echo -e "\t- Running the file $binary_name with opti=$level"
 
-    taskset -c 0 ./scripts/monitor.sh "$CORE_ID" "$RESULTS_DIR/monitor_$level.csv" "$MONITOR_INTERVAL" &
+    taskset -c 0 ./scripts/monitor.sh "$CORE_ID" "$RESULT_DIR/monitor_$level.csv" "$MONITOR_INTERVAL" &
     monitor_pid=$!
 
     taskset -c "$CORE_ID" "$BINARY_DIR/$binary_name" \
         -f "$DATA_FILE" \
         -i "$LOOKUP_ITERATIONS" \
-        -s "$SAMPLE_COUNT" > "$RESULTS_DIR/raw_$level.txt"
+        -s "$SAMPLE_COUNT" > "$RESULT_DIR/raw_$level.txt"
 
     sudo kill "$monitor_pid"
     unset monitor_pid
 
-    echo -e "\t- Colling down after startup"
+    echo -e "\t- Cooling down after startup"
 
-    sleep 10
+    # sleep 10
 done
 
 clear_vars
+
+echo "--- Image creation ---"
+
+mkdir -p "$IMAGE_DIR"
+
+for level in "${levels_order[@]}"; do
+    csv_file="$RESULT_DIR/monitor_$level.csv"
+    output_file="$IMAGE_DIR/monitor_$level.png"
+    python3 "$SCRIPT_DIR/plot_monitor.py" "$csv_file" "$output_file"
+done
+
+output_file="$IMAGE_DIR/compare_all.png"
+python3 "$SCRIPT_DIR/compare_levels.py" "$LOOKUP_ITERATIONS" "$output_file"
 
 echo "--- Finish! ---"
