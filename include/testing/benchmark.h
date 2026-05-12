@@ -16,15 +16,18 @@ extern const hash_function DEFAULT_HASH_FUNCTION;
 extern const equals_function DEFAULT_EQUALS_FUNCTION;
 
 typedef struct {
-    char *buffer;
-    uint64_t buf_size;
+    char *aligned_pool;
+    uint64_t pool_size;
+
     char **keys;
     uint64_t key_count;
 
     ChainHashTable *table;
 
-    uint64_t* lookup_indices;
+    char *queries_pool;
     char **test_queries;
+
+    uint64_t* lookup_indices;
     uint64_t lookup_iterations;
     uint64_t lookup_time;
 

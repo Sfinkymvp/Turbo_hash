@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <immintrin.h>
-// #include <ittnotify.h>
 #include <AMDProfileController.h>
 #include <assert.h>
 
@@ -12,9 +11,12 @@
 #include "table/table.h"
 
 const double DEFAULT_MAX_LOAD_FACTOR = 10.0;
-const uint64_t DEFAULT_LOOKUP_ITERATIONS = 10ULL;
-const uint64_t DEFAULT_SAMPLE_COUNT = 10ULL;
-const uint64_t DEFAULT_HT_CAPACITY = 64ULL;
+const uint64_t DEFAULT_LOOKUP_ITERATIONS = 10UL;
+const uint64_t DEFAULT_SAMPLE_COUNT = 10UL;
+const uint64_t DEFAULT_HT_CAPACITY = 64UL;
+
+// Максимальный размер должен быть кратен степени двойки (16, 32, 64)
+const uint64_t KEYWORD_MAX_SIZE = 32UL;
 
 #if defined(HASH_INTR)
     const hash_function DEFAULT_HASH_FUNCTION = hash_string_crc32_intr;
@@ -27,7 +29,7 @@ const equals_function DEFAULT_EQUALS_FUNCTION = string_equals_naive;
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
 
 #define BENCHMARK_ASSERT(context_ptr) \
-    assert((context_ptr)->buffer); assert((context_ptr)->keys); CHAIN_HT_ASSERT((context_ptr)->table); \
+    assert((context_ptr)->aligned_pool); assert((context_ptr)->keys); CHAIN_HT_ASSERT((context_ptr)->table); \
     assert((context_ptr)->lookup_indices); assert((context_ptr)->test_queries); \
     assert((context_ptr)->results);
    
@@ -35,8 +37,8 @@ static uint64_t run_lookup_sample(BenchmarkContext *context);
 static int fill_hash_table(BenchmarkContext *context);
 static void collect_table_stats(BenchmarkContext* context);
 static uint64_t *generate_shuffled_indices(uint64_t count, uint64_t modulus);
-static char** generate_random_queries(char **keys, uint64_t *indices, uint64_t count);
-static char **tokenize_buffer(char *buffer, uint64_t buf_size, uint64_t *token_count);
+static char** generate_random_queries(char **keys, uint64_t *indices, uint64_t count, char **out_queries_pool);
+static char **tokenize_buffer(char *buffer, uint64_t buf_size, uint64_t *token_count, char **out_pool);
 static uint64_t count_non_empty_lines(const char *buffer, uint64_t buf_size);
 
 int run_benchmark(BenchmarkContext *context)
@@ -96,17 +98,21 @@ int create_benchmark_context(BenchmarkContext *context, Args *args)
     assert(context);
     assert(args);
 
-    int status = read_file_to_buffer(&context->buffer, &context->buf_size, args->file_path);
+    char *buffer = NULL;
+    uint64_t buffer_size = 0;
+    int status = read_file_to_buffer(&buffer, &buffer_size, args->file_path);
     if (status != 0) {
         destroy_benchmark_context(context);
         return 1;
     }
-    context->keys = tokenize_buffer(context->buffer, context->buf_size, &context->key_count);
+
+    context->keys = tokenize_buffer(buffer, buffer_size, &context->key_count, &context->aligned_pool);
     if (context->keys == NULL) {
         ERROR("Memory allocation error");
         destroy_benchmark_context(context);
         return 1;
     }
+    context->pool_size = context->key_count * KEYWORD_MAX_SIZE;
 
     context->lookup_iterations = args->lookup_iterations;
     context->lookup_indices = generate_shuffled_indices(context->lookup_iterations, context->key_count);
@@ -117,7 +123,7 @@ int create_benchmark_context(BenchmarkContext *context, Args *args)
     }
 
     context->test_queries = generate_random_queries(context->keys, 
-        context->lookup_indices, context->lookup_iterations);
+        context->lookup_indices, context->lookup_iterations, &context->queries_pool);
     if (context->test_queries == NULL) {
         ERROR("Memory allocation error");
         destroy_benchmark_context(context);
@@ -160,9 +166,10 @@ void destroy_benchmark_context(BenchmarkContext *context)
 {
     assert(context);
 
-    free(context->buffer);
+    free(context->aligned_pool);
     free(context->keys);
     free(context->lookup_indices);
+    free(context->queries_pool);
     free(context->test_queries);
     free(context->results);
     if (context->table) {
@@ -207,52 +214,81 @@ static uint64_t *generate_shuffled_indices(uint64_t count, uint64_t modulus)
     return indices;
 }
 
-static char** generate_random_queries(char **keys, uint64_t *indices, uint64_t count)
+static char** generate_random_queries(char **keys, uint64_t *indices, uint64_t count, char **out_queries_pool)
 {
     assert(keys);
     assert(indices);
+    assert(out_queries_pool);
 
     char **random_queries = (char **)calloc(count, sizeof(char *));
     if (random_queries == NULL) {
         return NULL;
     }
 
+    char *queries_pool = (char *)aligned_alloc(KEYWORD_MAX_SIZE, count * KEYWORD_MAX_SIZE);
+    if (queries_pool == NULL) {
+        free(random_queries);
+        return NULL;
+    }
+    
+    memset(queries_pool, 0, count * KEYWORD_MAX_SIZE);
+
     for (uint64_t i = 0; i < count; i++) {
         uint64_t index = indices[i];
-        random_queries[i] = keys[index] + index % 2;
+        char *dest = &queries_pool[i * KEYWORD_MAX_SIZE];
+        char *src = keys[index];
+
+        if (index % 2 == 0) {
+            memcpy(dest, src, KEYWORD_MAX_SIZE);
+        } else {
+            memcpy(dest, src + 1, KEYWORD_MAX_SIZE - 1);
+        }
+
+        random_queries[i] = dest;
     }
 
+    *out_queries_pool = queries_pool;
     return random_queries;
 }
 
-static char **tokenize_buffer(char *buffer, uint64_t buf_size, uint64_t *token_count)
+static char **tokenize_buffer(char *buffer, uint64_t buf_size, uint64_t *token_count, char **out_pool)
 {
-    assert(buffer);
-    assert(buf_size);
+    assert(buffer); assert(token_count); assert(out_pool);
 
     uint64_t count = count_non_empty_lines(buffer, buf_size);
-    char* *tokens = (char**)calloc(count, sizeof(char*));
+    char **tokens = (char **)calloc(count, sizeof(char *));
     if (tokens == NULL) {
         return NULL;
     }
+    
+    char *aligned_pool = (char *)aligned_alloc(KEYWORD_MAX_SIZE, count * KEYWORD_MAX_SIZE);
+    memset(aligned_pool, 0, count * KEYWORD_MAX_SIZE);
 
     uint64_t token_idx = 0;
-    tokens[token_idx++] = buffer;
+    uint64_t current_len = 0;
+    char *current_start = buffer;
 
     // buf_size > 0 на этом этапе, buffer[buf_size - 1] = \0
-    for (uint64_t i = 0; i < buf_size - 1; i++) {
-        if (buffer[i] == '\n') {
-            if (buffer[i + 1] != '\n' && buffer[i + 1] != '\0') {
-                tokens[token_idx++] = buffer + i + 1;
-                buffer[i] = '\0';
+    for (uint64_t i = 0; i < buf_size; i++) {
+        if (buffer[i] == '\n' || buffer[i] == '\r' || buffer[i] == '\0') {
+            if (current_len > 0) {
+                memcpy(&aligned_pool[token_idx * KEYWORD_MAX_SIZE], current_start, current_len);
+                tokens[token_idx] = &aligned_pool[token_idx * KEYWORD_MAX_SIZE];
+                token_idx++;
+                current_len = 0;
             }
+        } else {
+            if (current_len == 0) {
+                current_start = &buffer[i];
+            }
+            current_len++;
         }
     }
 
     // Структура буфера:
     //      "string1\0string2\0...\0string_last\0"
-
     *token_count = count;
+    *out_pool = aligned_pool;
     return tokens;
 }
 
