@@ -5,15 +5,54 @@
 
 #include "common/hash.h"
 
-typedef struct HashNode HashNode;
-struct HashNode {
-    const char *key;
-    HashNode *next;
-    int value;
-};
+#if defined(CF_LIST)
+    #include "table/cf_list.h"
+    
+    typedef CFList* Bucket;
+    
+    #define BUCKET_INIT(bucket)               cf_list_init(bucket)
+    #define BUCKET_INSERT(bucket, key, value) cf_list_insert(bucket, key, value)
+    #define BUCKET_FIND(bucket, key)          cf_list_find(bucket, key)
+    #define BUCKET_REMOVE(bucket, key)        cf_list_remove(bucket, key)
+    #define BUCKET_DESTROY(bucket)            cf_list_destroy(bucket)
+
+#elif defined(STD_LIST)
+    #include "table/std_list.h"
+
+    typedef StdList* Bucket;
+
+    #define BUCKET_INIT(bucket)               std_list_init(bucket)
+    #define BUCKET_INSERT(bucket, key, value) std_list_insert(bucket, key, value)
+    #define BUCKET_FIND(bucket, key)          std_list_find(bucket, key)
+    #define BUCKET_REMOVE(bucket, key)        std_list_remove(bucket, key)
+    #define BUCKET_DESTROY(bucket)            std_list_destroy(bucket)
+
+#elif defined(CUSTOM_ARRAY)
+    #include "table/array.h"
+
+    typedef DynamicArray* Bucket;
+
+    #define BUCKET_INIT(bucket)               array_init(bucket)
+    #define BUCKET_INSERT(bucket, key, value) array_insert(bucket, key, value)
+    #define BUCKET_FIND(bucket, key)          array_find(bucket, key)
+    #define BUCKET_REMOVE(bucket, key)        array_remove(bucket, key)
+    #define BUCKET_DESTROY(bucket)            array_destroy(bucket)
+
+#else // CLASSIC_LIST
+    #include "table/classic_list.h"
+    
+    typedef CList* Bucket;
+    
+    #define BUCKET_INIT(bucket)               classic_list_init(bucket)
+    #define BUCKET_INSERT(bucket, key, value) classic_list_insert(bucket, key, value)
+    #define BUCKET_FIND(bucket, key)          classic_list_find(bucket, key)
+    #define BUCKET_REMOVE(bucket, key)        classic_list_remove(bucket, key)
+    #define BUCKET_DESTROY(bucket)            classic_list_destroy(bucket)
+
+#endif // CLASSIC_LIST
 
 typedef struct ChainHashTable {
-    HashNode **buckets;
+    Bucket *buckets;
     size_t size;
     size_t capacity;
     hash_function hash_func;
@@ -30,37 +69,4 @@ int chain_ht_find(const ChainHashTable *table, const char *key, int *result);
 int chain_ht_remove(ChainHashTable *table, const char *key);
 void chain_ht_destroy(ChainHashTable *table);
 
-static inline int my_strcmp_inline_evex(const char *s1, const char *s2) {
-    int res;
-
-    __asm__ volatile (
-        ".intel_syntax noprefix;"
-        "vpxord zmm2, zmm2, zmm2\n"
-        "1:;"
-        "vmovdqu8 zmm0, [%[s1]];"
-        "vmovdqu8 zmm1, [%[s2]];"
-        
-        "vpcmpub k1, zmm0, zmm1, 4;" 
-        "vpcmpub k3, zmm0, zmm2, 0;" 
-        "korq k4, k3, k1;"
-        "kortestq k4, k4;"
-        "jne 2f;"
-
-        "add %[s1], 64;"
-        "add %[s2], 64;"
-        "jmp 1b\n"
-
-        "2:;"
-        "kmovq %q[res], k1;"
-        "test %q[res], %q[res];"
-        "setnz %b[res];"  
-        "movzx %[res], %b[res];"
-        ".att_syntax prefix"
-        : [res] "=&r" (res), [s1] "+r" (s1), [s2] "+r" (s2)
-        : 
-        : "zmm0", "zmm1", "zmm2", "k1", "k3", "k4", "cc", "memory"
-    );
-
-    return res;
-}
 #endif // TABLE_H

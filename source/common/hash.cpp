@@ -76,12 +76,6 @@ static const unsigned int crc32_table[] =
     0xbcb4666d, 0xb8757bda, 0xb5365d03, 0xb1f740b4
 };
 
-#ifdef STRLEN_ASM
-extern size_t my_strlen_avx512_asm(const char *str);
-#endif // STRLEN_ASM
-
-static inline size_t my_strlen_inline_asm(const char *str);
-
 int string_equals_naive(const char *str1, const char *str2)
 {
     assert(str1);
@@ -90,58 +84,55 @@ int string_equals_naive(const char *str1, const char *str2)
     return strcmp(str1, str2);
 }
 
-uint64_t hash_string_crc32_naive(const char *key)
-{
-    assert(key);
+#if defined(HASH_INTR)
+    uint64_t hash_string_crc32_intr(const char *key)
+    {
+        assert(key);
 
-    const unsigned char *buffer = (const unsigned char *)key;
-    unsigned int crc = CRC32_INIT_VALUE;
+        int len = STRING_LEN(key);
 
-    for (; *buffer != '\0'; buffer++) {
-      crc = (crc << 8) ^ crc32_table[((crc >> 24) ^ *buffer) & 255];
+        uint64_t crc64 = (uint64_t)0xFFFFFFFF;
+        
+        int i = 0;
+        for (; i <= len - 8; i += 8) {
+            crc64 = _mm_crc32_u64(crc64, *(const uint64_t *)(key + i));
+        }
+
+        uint32_t crc32 = (uint32_t)crc64;
+        int remainder = len - i;
+
+        if (remainder >= 4) {
+            crc32 = _mm_crc32_u32(crc32, *(const uint32_t *)(key + i));
+            i += 4;
+            remainder -= 4;
+        }
+
+        if (remainder >= 2) {
+            crc32 = _mm_crc32_u16(crc32, *(const uint16_t *)(key + i));
+            i += 2;
+            remainder -= 2;
+        }
+        
+        if (remainder) {
+            crc32 = _mm_crc32_u8(crc32, *(const uint8_t *)(key + i));
+        }
+
+        return (uint64_t)crc32;
     }
 
-    return (uint64_t)crc;
-}
-
-uint64_t hash_string_crc32_intr(const char *key)
-{
-    assert(key);
-
-#ifdef STRLEN_INLINE
-    int len = my_strlen_inline_asm(key);
-#elif defined STRLEN_ASM
-    int len = my_strlen_avx512_asm(key);
 #else
-    int len = strlen(key);
-#endif // STRLEN_INLINE
+    uint64_t hash_string_crc32_naive(const char *key)
+    {
+        assert(key);
 
-    uint64_t crc64 = (uint64_t)0xFFFFFFFF;
-    
-    int i = 0;
-    for (; i <= len - 8; i += 8) {
-        crc64 = _mm_crc32_u64(crc64, *(const uint64_t *)(key + i));
+        const unsigned char *buffer = (const unsigned char *)key;
+        unsigned int crc = CRC32_INIT_VALUE;
+
+        for (; *buffer != '\0'; buffer++) {
+        crc = (crc << 8) ^ crc32_table[((crc >> 24) ^ *buffer) & 255];
+        }
+
+        return (uint64_t)crc;
     }
 
-    uint32_t crc32 = (uint32_t)crc64;
-    int remainder = len - i;
-
-    if (remainder >= 4) {
-        crc32 = _mm_crc32_u32(crc32, *(const uint32_t *)(key + i));
-        i += 4;
-        remainder -= 4;
-    }
-
-    if (remainder >= 2) {
-        crc32 = _mm_crc32_u16(crc32, *(const uint16_t *)(key + i));
-        i += 2;
-        remainder -= 2;
-    }
-    
-    if (remainder) {
-        crc32 = _mm_crc32_u8(crc32, *(const uint8_t *)(key + i));
-    }
-
-    return (uint64_t)crc32;
-}
-
+#endif // HASH_INTR

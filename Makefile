@@ -8,7 +8,7 @@ IMAGES_DIR    = images
 DATA_DIR 	  = data
 UPROF_DIR  	  = /opt/AMDuProf_5.2-606
 
-CC 			  = gcc
+CC 			  = g++
 CFLAGS     	  = -I$(INC_DIR) -Wall -Wextra -Werror \
 				-march=native -g -I$(UPROF_DIR)/include
 
@@ -22,9 +22,6 @@ GENFLAGS 	  = -I$(INC_DIR) -O3
 
 BENCH_TARGET_FILE   := bench
 GEN_TARGET_FILE     = gen
-
-# DATA_GEN_SCRIPT = data_generator.sh
-# PLOT_GEN_SCRIPT = plot_generator.py
 
 ifeq ($(INDIRECT), ON)
 	OPTI = DEFAULT

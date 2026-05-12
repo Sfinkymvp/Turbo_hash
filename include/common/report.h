@@ -15,7 +15,7 @@ typedef enum {
     LOG_ERROR
 } LogLevel;
 
-#ifndef DISABLE_LOGS
+#if !defined(DISABLE_LOGS)
     #define _LOG_ALL(level, stream, format, ...) \
         _msg_wrapper(level, stream, __FILENAME__, __func__, __LINE__, format, ##__VA_ARGS__)
 
