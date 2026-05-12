@@ -28,7 +28,7 @@ int std_list_insert(StdList *list, const char *key, int value)
     return 0;
 }
 
-int std_list_find(StdList *list, const char *key)
+int std_list_find(StdList *list, const char *key, int *result)
 {
     assert(list); assert(key);
 
@@ -36,6 +36,9 @@ int std_list_find(StdList *list, const char *key)
     
     for (it = list->list.begin(); it != list->list.end(); it++) {
         if (COMPARE_KEYS(it->key, key) == 0) {
+            if (result) {
+                *result = it->value;
+            }
             return 1; 
         }
     }

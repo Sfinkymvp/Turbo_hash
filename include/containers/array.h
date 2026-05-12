@@ -17,7 +17,7 @@ typedef struct {
 
 DynamicArray *array_init();
 int array_insert(DynamicArray *array, const char *key, int value);
-int array_find(DynamicArray *array, const char *key);
+int array_find(DynamicArray *array, const char *key, int *result);
 int array_remove(DynamicArray *array, const char *key);
 int array_for_each(DynamicArray *array, action_func action, void *user_data);
 void array_destroy(DynamicArray *array);

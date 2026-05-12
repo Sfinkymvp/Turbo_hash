@@ -53,12 +53,15 @@ int array_insert(DynamicArray *array, const char *key, int value)
     return 0;
 }
 
-int array_find(DynamicArray *array, const char *key)
+int array_find(DynamicArray *array, const char *key, int *result)
 {
-    assert(array);
+    assert(array); assert(key);
 
     for (int i = 0; i < array->size; i++) {
         if (COMPARE_KEYS(array->data[i].key, key) == 0) {
+            if (result) {
+                *result = array->data[i].value;
+            }
             return 1;
         }
     }

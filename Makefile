@@ -38,6 +38,7 @@ ifeq ($(INDIRECT), ON)
 endif 
 
 ifdef OPTI
+	undefine LIST_TYPE
     ifeq ($(OPTI), DEFAULT)
         undefine HASH
         undefine CMP
@@ -49,8 +50,8 @@ ifdef OPTI
 		BENCH_TARGET_FILE := $(BENCH_TARGET_FILE)_level0
     else ifeq ($(OPTI), LEVEL1)
         CXXFLAGS += -O3
-		undefine HASH
-		CMP = inline
+		HASH = hash
+		undefine CMP
 		undefine LEN
 		BENCH_TARGET_FILE := $(BENCH_TARGET_FILE)_level1
     else ifeq ($(OPTI), LEVEL2)

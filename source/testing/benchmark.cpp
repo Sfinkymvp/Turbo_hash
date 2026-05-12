@@ -15,7 +15,13 @@ const double DEFAULT_MAX_LOAD_FACTOR = 10.0;
 const uint64_t DEFAULT_LOOKUP_ITERATIONS = 10ULL;
 const uint64_t DEFAULT_SAMPLE_COUNT = 10ULL;
 const uint64_t DEFAULT_HT_CAPACITY = 64ULL;
-const hash_function DEFAULT_HASH_FUNCTION = hash_string_crc32_naive;
+
+#if defined(HASH_INTR)
+    const hash_function DEFAULT_HASH_FUNCTION = hash_string_crc32_intr;
+#else 
+    const hash_function DEFAULT_HASH_FUNCTION = hash_string_crc32_naive;
+#endif // HASH_INTR
+
 const equals_function DEFAULT_EQUALS_FUNCTION = string_equals_naive;
 
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
@@ -184,6 +190,7 @@ static void collect_table_stats(BenchmarkContext* context)
     assert(context->table->size);
     // Хеш-таблица должна быть заполнена к моменту сбора информации
 
+    (void)context;
 }
 
 static uint64_t *generate_shuffled_indices(uint64_t count, uint64_t modulus)

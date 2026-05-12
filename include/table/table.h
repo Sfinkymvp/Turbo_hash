@@ -12,7 +12,7 @@
     
     #define BUCKET_INIT(bucket)                   cf_list_init(bucket)
     #define BUCKET_INSERT(bucket, key, value)     cf_list_insert(bucket, key, value)
-    #define BUCKET_FIND(bucket, key)              cf_list_find(bucket, key)
+    #define BUCKET_FIND(bucket, key, res_ptr)     cf_list_find(bucket, key, res_ptr)
     #define BUCKET_REMOVE(bucket, key)            cf_list_remove(bucket, key)
     #define BUCKET_FOR_EACH(bucket, action, data) cf_list_for_each(bucket, action, data)
     #define BUCKET_DESTROY(bucket)                cf_list_destroy(bucket)
@@ -24,7 +24,7 @@
 
     #define BUCKET_INIT(bucket)                   std_list_init(bucket)
     #define BUCKET_INSERT(bucket, key, value)     std_list_insert(bucket, key, value)
-    #define BUCKET_FIND(bucket, key)              std_list_find(bucket, key)
+    #define BUCKET_FIND(bucket, key, res_ptr)     std_list_find(bucket, key, res_ptr)
     #define BUCKET_REMOVE(bucket, key)            std_list_remove(bucket, key)
     #define BUCKET_FOR_EACH(bucket, action, data) std_list_for_each(bucket, action, data)
     #define BUCKET_DESTROY(bucket)                std_list_destroy(bucket)
@@ -36,7 +36,7 @@
     
     #define BUCKET_INIT(bucket)                   classic_list_init(bucket)
     #define BUCKET_INSERT(bucket, key, value)     classic_list_insert(bucket, key, value)
-    #define BUCKET_FIND(bucket, key)              classic_list_find(bucket, key)
+    #define BUCKET_FIND(bucket, key, res_ptr)     classic_list_find(bucket, key, res_ptr)
     #define BUCKET_REMOVE(bucket, key)            classic_list_remove(bucket, key)
     #define BUCKET_FOR_EACH(bucket, action, data) classic_list_for_each(bucket, action, data)
     #define BUCKET_DESTROY(bucket)                classic_list_destroy(bucket)
@@ -48,7 +48,7 @@
 
     #define BUCKET_INIT(bucket)                   array_init(bucket)
     #define BUCKET_INSERT(bucket, key, value)     array_insert(bucket, key, value)
-    #define BUCKET_FIND(bucket, key)              array_find(bucket, key)
+    #define BUCKET_FIND(bucket, key, res_ptr)     array_find(bucket, key, res_ptr)
     #define BUCKET_REMOVE(bucket, key)            array_remove(bucket, key)
     #define BUCKET_FOR_EACH(bucket, action, data) array_for_each(bucket, action, data)
     #define BUCKET_DESTROY(bucket)                array_destroy(bucket)

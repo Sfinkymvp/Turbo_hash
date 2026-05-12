@@ -68,13 +68,16 @@ int cf_list_insert(CFList *list, const char *key, int value)
     return 0;
 }
 
-int cf_list_find(CFList *list, const char *key)
+int cf_list_find(CFList *list, const char *key, int *result)
 {
-    assert(list);
+    assert(list); assert(key);
 
     int curr = list->head;
     while (curr != EMPTY) {
         if (COMPARE_KEYS(list->storage[curr].key, key) == 0) {
+            if (result) {
+                *result = list->storage[curr].value;
+            }
             return 1;
         }
         curr = list->storage[curr].next;

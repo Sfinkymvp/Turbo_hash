@@ -47,13 +47,16 @@ int classic_list_insert(CList *list, const char *key, int value)
     return 0;
 }
 
-int classic_list_find(CList *list, const char *key) 
+int classic_list_find(CList *list, const char *key, int *result)
 {
-    assert(list);
+    assert(list); assert(key);
 
     CNode *curr = list->root;
     while (curr != NULL) {
         if (COMPARE_KEYS(curr->key, key) == 0) {
+            if (result) {
+                *result = curr->value;
+            }
             return 1;
         }
         curr = curr->next;

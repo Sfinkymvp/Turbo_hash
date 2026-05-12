@@ -81,7 +81,7 @@ int chain_ht_find(const ChainHashTable *table, const char *key, int *result)
         return 0;
     }
 
-    return BUCKET_FIND(table->buckets[hash], key);
+    return BUCKET_FIND(table->buckets[hash], key, result);
 }
 
 int chain_ht_remove(ChainHashTable *table, const char *key)
