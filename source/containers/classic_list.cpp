@@ -3,13 +3,13 @@
 #include <assert.h>
 #include <forward_list>
 
-#include "table/classic_list.h"
+#include "containers/classic_list.h"
 #include "common/compare.h"
 #include "common/report.h"
 
 CList *classic_list_init()
 {
-    CList *list = (CList *)calloc(1, sizeof(CNode));
+    CList *list = (CList *)calloc(1, sizeof(CList));
     if (list == NULL) {
         ERROR("memory allocation error");
         return NULL;
@@ -56,6 +56,7 @@ int classic_list_find(CList *list, const char *key)
         if (COMPARE_KEYS(curr->key, key) == 0) {
             return 1;
         }
+        curr = curr->next;
     }
 
     return 0;
@@ -85,6 +86,22 @@ int classic_list_remove(CList *list, const char *key)
         prev->next = curr->next;
     }
     free(curr);
+
+    return 0;
+}
+
+int classic_list_for_each(CList *list, action_func action, void *user_data)
+{
+    assert(list); assert(action);
+
+    CNode *curr = list->root;
+    while (curr != NULL) {
+        if (action(curr->key, curr->value, user_data) != 0) {
+            return -1;
+        }
+
+        curr = curr->next;
+    }
 
     return 0;
 }

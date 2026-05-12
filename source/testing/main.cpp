@@ -30,7 +30,6 @@ int main(int argc, char *const *argv)
         goto cleanup;
     }
     INFO("benchmark finished");
-
     print_results(&context);
     INFO("Results printed");
 

@@ -7,7 +7,13 @@
 #include "common/hash.h"
 #include "common/report.h"
 
+typedef struct {
+    Bucket *new_buckets;
+    uint64_t new_capacity;
+} RehashContext;
+
 static int chain_ht_rehash(ChainHashTable *table);
+static int rehash_transfer_node(const char *key, int value, void *user_data);
 
 ChainHashTable *chain_ht_create(uint64_t capacity, double max_load_factor, hash_function hash, equals_function equals)
 {
@@ -37,27 +43,26 @@ ChainHashTable *chain_ht_create(uint64_t capacity, double max_load_factor, hash_
 
 int chain_ht_insert(ChainHashTable *table, const char *key, int value)
 {
-    CHAIN_HT_ASSERT(table); assert(key);
+    CHAIN_HT_ASSERT(table); assert(key); assert(table->capacity > 0);
 
     if ((double)table->size / table->capacity >= table->max_load_factor) {
         int status = chain_ht_rehash(table);
-        if (status != 0) {
-            return status;
+        if (status == -1) {
+            return -1;
         }
     }
 
-    int result = 0;
     uint64_t hash = HASH(key) & (table->capacity - 1);
     if (table->buckets[hash] == NULL) {
         table->buckets[hash] = BUCKET_INIT();
         if (table->buckets[hash] == NULL) {
-            return 1; 
+            return -1;
         }
     }
 
     int result = BUCKET_INSERT(table->buckets[hash], key, value);
     if (result == -1) {
-        return 1;
+        return -1;
     }
 
     if (result == 0) {
@@ -72,9 +77,11 @@ int chain_ht_find(const ChainHashTable *table, const char *key, int *result)
     CHAIN_HT_ASSERT(table); assert(key); assert(result);
 
     uint64_t hash = HASH(key) & (table->capacity - 1);
-    int res = BUCKET_FIND(table->buckets[hash], key);
+    if (table->buckets[hash] == NULL) {
+        return 0;
+    }
 
-    return res;
+    return BUCKET_FIND(table->buckets[hash], key);
 }
 
 int chain_ht_remove(ChainHashTable *table, const char *key)
@@ -84,7 +91,7 @@ int chain_ht_remove(ChainHashTable *table, const char *key)
     uint64_t hash = HASH(key) & (table->capacity -1);
     int result = BUCKET_REMOVE(table->buckets[hash], key);
     if (result == -1) {
-        return 1;
+        return -1;
     }
 
     if (result == 0) {
@@ -108,36 +115,62 @@ void chain_ht_destroy(ChainHashTable *table)
     free(table);
 }
 
-
 static int chain_ht_rehash(ChainHashTable *table)
 {
     CHAIN_HT_ASSERT(table);
 
-    // uint64_t old_capacity = table->capacity;
-    // uint64_t new_capacity = old_capacity  *2;
+    uint64_t old_capacity = table->capacity;
+    uint64_t new_capacity = 2 * old_capacity;
+    Bucket *new_buckets = (Bucket *)calloc(new_capacity ,sizeof(Bucket));
+    if (new_buckets == NULL) {
+        ERROR("memory allocation error");
+        return -1;
+    }
 
-    // HashNode **old_buckets = table->buckets;
-    // HashNode **new_buckets = (HashNode **)calloc(new_capacity, sizeof(HashNode *));
-    // if (new_buckets == NULL) {
-    //     ERROR("Memory allocation error");
-    //     return 1;
-    // }
+    RehashContext context = {new_buckets, new_capacity};
 
-    // for (uint64_t i = 0; i < old_capacity; i++) {
-    //     HashNode *current = old_buckets[i];
-    //     while (current != NULL) {
-    //         HashNode *next_temp = current->next;
+    uint64_t i = 0;
+    for (i = 0; i < old_capacity; i++) {
+        if (table->buckets[i] != NULL) {
+            if (BUCKET_FOR_EACH(table->buckets[i], rehash_transfer_node, &context) == -1) {
+                break;
+            }
 
-    //         uint64_t hash = HASH(current->key) & (table->capacity - 1);
+            BUCKET_DESTROY(table->buckets[i]);
+            table->buckets[i] = NULL;
+        }
+    }
 
-    //         current->next = new_buckets[hash];
-    //         new_buckets[hash] = current;
-    //         current = next_temp;
-    //     }
-    // }
+    if (i != old_capacity) {
+        for (uint64_t k = 0; k < new_capacity; k++) {
+            if (new_buckets[k] != NULL) {
+                BUCKET_DESTROY(new_buckets[k]);
+            }
+        }
+        return -1;
+    }
 
-    // table->capacity = new_capacity;
-    // table->buckets = new_buckets;
-    // free(old_buckets);
+    free(table->buckets);
+    table->buckets = new_buckets;
+    table->capacity = new_capacity;
+
     return 0;
+}
+
+static int rehash_transfer_node(const char *key, int value, void *user_data)
+{
+    assert(key); assert(user_data);
+
+    RehashContext *context = (RehashContext *)user_data;
+
+    uint64_t hash = HASH(key) & (context->new_capacity - 1);
+
+    if (context->new_buckets[hash] == NULL) {
+        context->new_buckets[hash] = BUCKET_INIT();
+        if (context->new_buckets[hash] == NULL) {
+            return -1; 
+        }
+    }
+
+    return BUCKET_INSERT(context->new_buckets[hash], key, value);
 }

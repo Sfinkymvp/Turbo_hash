@@ -3,7 +3,7 @@
 #include <assert.h>
 #include <forward_list>
 
-#include "table/cf_list.h"
+#include "containers/cf_list.h"
 #include "common/compare.h"
 #include "common/report.h"
 
@@ -31,7 +31,9 @@ CFList *cf_list_init()
     list->capacity = DEFAULT_CAPACITY;
     list->size = 0;
     list->head = EMPTY;
-    list->free_head = 0;
+    list->free_head = EMPTY;
+
+    initialize_free_nodes(list, 0, list->capacity - 1);
 
     return list;
 }
@@ -61,6 +63,7 @@ int cf_list_insert(CFList *list, const char *key, int value)
 
     list->storage[new_idx].next = list->head;
     list->head = new_idx;
+    list->size++;
 
     return 0;
 }
@@ -111,6 +114,23 @@ int cf_list_remove(CFList *list, const char *key)
 
     list->storage[curr].next = list->free_head;
     list->free_head = curr;
+    list->size--;
+
+    return 0;
+}
+
+int cf_list_for_each(CFList *list, action_func action, void *user_data)
+{
+    assert(list); assert(action);
+
+    int curr = list->head;
+    while (curr != EMPTY) {
+        if (action(list->storage[curr].key, list->storage[curr].value, user_data) != 0) {
+            return -1;
+        }
+
+        curr = list->storage[curr].next;
+    }
 
     return 0;
 }
@@ -140,7 +160,6 @@ static int cf_list_resize(CFList *list)
     }
 
     list->storage = temp;
-    list->free_head = list->capacity;
     list->capacity = new_capacity;
 
     initialize_free_nodes(list, list->capacity / 2, list->capacity - 1);

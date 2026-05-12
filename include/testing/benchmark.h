@@ -10,6 +10,7 @@ typedef struct ChainHashTable ChainHashTable;
 
 extern const double DEFAULT_MAX_LOAD_FACTOR;
 extern const uint64_t DEFAULT_LOOKUP_ITERATIONS;
+extern const uint64_t DEFAULT_SAMPLE_COUNT;
 extern const uint64_t DEFAULT_HT_CAPACITY;
 extern const hash_function DEFAULT_HASH_FUNCTION;
 extern const equals_function DEFAULT_EQUALS_FUNCTION;

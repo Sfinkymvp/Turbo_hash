@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <assert.h>
 
-#include "table/array.h"
+#include "containers/array.h"
 #include "common/compare.h"
 #include "common/report.h"
 
@@ -83,7 +83,7 @@ int array_remove(DynamicArray *array, const char *key)
 
     if (array->size == 1 || i == array->size - 1) {
         array->data[i].key = NULL;
-        array->data[i].value = NULL;
+        array->data[i].value = 0;
     } else {
         array->data[i].key = array->data[array->size - 1].key;
         array->data[i].value = array->data[array->size - 1].value;
@@ -99,6 +99,19 @@ void array_destroy(DynamicArray *array)
 
     free(array->data);
     free(array);
+}
+
+int array_for_each(DynamicArray *array, action_func action, void *user_data)
+{
+    assert(array); assert(action);
+
+    for (int curr = 0; curr < array->size; curr++) {
+        if (action(array->data[curr].key, array->data[curr].value, user_data) != 0) {
+            return -1;
+        }
+    }
+
+    return 0;
 }
 
 static int array_resize(DynamicArray *array)

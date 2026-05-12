@@ -16,9 +16,9 @@ int string_equals_naive(const char *str1, const char *str2);
     #define HASH(str) hash_string_crc32_intr(str)
 
 #else 
-    uint64_t hash_string_naive(const char *key);
+    uint64_t hash_string_crc32_naive(const char *key);
 
-    #define HASH(str) hash_string_naive(str)
+    #define HASH(str) hash_string_crc32_naive(str)
 
 #endif // HASH_INTR
 

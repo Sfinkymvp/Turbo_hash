@@ -22,6 +22,7 @@ int parse_args(Args *args, int argc, char *const *argv)
     args->max_load_factor = DEFAULT_MAX_LOAD_FACTOR;
     args->file_path = NULL;
     args->lookup_iterations = DEFAULT_LOOKUP_ITERATIONS;
+    args->sample_count = DEFAULT_SAMPLE_COUNT;
     args->hash_func = DEFAULT_HASH_FUNCTION;
     args->equals_func = DEFAULT_EQUALS_FUNCTION;
 
