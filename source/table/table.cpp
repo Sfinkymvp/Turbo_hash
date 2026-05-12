@@ -74,7 +74,7 @@ int chain_ht_insert(ChainHashTable *table, const char *key, int value)
 
 int chain_ht_find(const ChainHashTable *table, const char *key, int *result)
 {
-    CHAIN_HT_ASSERT(table); assert(key); assert(result);
+    CHAIN_HT_ASSERT(table); assert(key);
 
     uint64_t hash = HASH(key) & (table->capacity - 1);
     if (table->buckets[hash] == NULL) {

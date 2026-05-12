@@ -37,8 +37,8 @@ static uint64_t run_lookup_sample(BenchmarkContext *context);
 static int fill_hash_table(BenchmarkContext *context);
 static void collect_table_stats(BenchmarkContext* context);
 static uint64_t *generate_shuffled_indices(uint64_t count, uint64_t modulus);
-static char** generate_random_queries(char **keys, uint64_t *indices, uint64_t count, char **out_queries_pool);
-static char **tokenize_buffer(char *buffer, uint64_t buf_size, uint64_t *token_count, char **out_pool);
+static int generate_random_queries(BenchmarkContext *context);
+static int tokenize_buffer(BenchmarkContext *context, char *buffer, uint64_t buf_size);
 static uint64_t count_non_empty_lines(const char *buffer, uint64_t buf_size);
 
 int run_benchmark(BenchmarkContext *context)
@@ -83,10 +83,9 @@ static uint64_t run_lookup_sample(BenchmarkContext *context)
 {
     BENCHMARK_ASSERT(context);
 
-    int result = 0;
     uint64_t start_tick = __rdtsc();
     for (uint64_t i = 0; i < context->lookup_iterations; i++) {
-        chain_ht_find(context->table, context->test_queries[i], &result);
+        chain_ht_find(context->table, context->test_queries[i], NULL);
     }
     uint64_t end_tick = __rdtsc();
 
@@ -103,31 +102,28 @@ int create_benchmark_context(BenchmarkContext *context, Args *args)
     int status = read_file_to_buffer(&buffer, &buffer_size, args->file_path);
     if (status != 0) {
         destroy_benchmark_context(context);
-        return 1;
+        return status;
     }
 
-    context->keys = tokenize_buffer(buffer, buffer_size, &context->key_count, &context->aligned_pool);
-    if (context->keys == NULL) {
-        ERROR("Memory allocation error");
+    status = tokenize_buffer(context, buffer, buffer_size);
+    if (status != 0) {
         destroy_benchmark_context(context);
-        return 1;
+        return status;
     }
-    context->pool_size = context->key_count * KEYWORD_MAX_SIZE;
+
+    free(buffer);
 
     context->lookup_iterations = args->lookup_iterations;
     context->lookup_indices = generate_shuffled_indices(context->lookup_iterations, context->key_count);
     if (context->lookup_indices == NULL) {
-        ERROR("Memory allocation error");
         destroy_benchmark_context(context);
-        return 1;
+        return -1;
     }
 
-    context->test_queries = generate_random_queries(context->keys, 
-        context->lookup_indices, context->lookup_iterations, &context->queries_pool);
-    if (context->test_queries == NULL) {
-        ERROR("Memory allocation error");
+    status = generate_random_queries(context);
+    if (status != 0) {
         destroy_benchmark_context(context);
-        return 1;
+        return status;
     }
 
     context->sample_count = args->sample_count;
@@ -204,6 +200,7 @@ static uint64_t *generate_shuffled_indices(uint64_t count, uint64_t modulus)
 {
     uint64_t *indices = (uint64_t *)calloc(count, sizeof(uint64_t));
     if (indices == NULL) {
+        ERROR("Memory allocation error");
         return NULL;
     }
 
@@ -214,29 +211,31 @@ static uint64_t *generate_shuffled_indices(uint64_t count, uint64_t modulus)
     return indices;
 }
 
-static char** generate_random_queries(char **keys, uint64_t *indices, uint64_t count, char **out_queries_pool)
+static int generate_random_queries(BenchmarkContext *context)
 {
-    assert(keys);
-    assert(indices);
-    assert(out_queries_pool);
+    assert(context);
 
-    char **random_queries = (char **)calloc(count, sizeof(char *));
-    if (random_queries == NULL) {
-        return NULL;
+    uint64_t iters = context->lookup_iterations;
+
+    char **test_queries = (char **)calloc(iters, sizeof(char *));
+    if (test_queries == NULL) {
+        ERROR("memory allocation error");
+        return -1;
     }
 
-    char *queries_pool = (char *)aligned_alloc(KEYWORD_MAX_SIZE, count * KEYWORD_MAX_SIZE);
+    char *queries_pool = (char *)aligned_alloc(KEYWORD_MAX_SIZE, iters * KEYWORD_MAX_SIZE);
     if (queries_pool == NULL) {
-        free(random_queries);
-        return NULL;
+        ERROR("memory allocation error");
+        free(test_queries);
+        return -1;
     }
-    
-    memset(queries_pool, 0, count * KEYWORD_MAX_SIZE);
 
-    for (uint64_t i = 0; i < count; i++) {
-        uint64_t index = indices[i];
+    memset(queries_pool, 0, iters * KEYWORD_MAX_SIZE);
+
+    for (uint64_t i = 0; i < iters; i++) {
+        uint64_t index = context->lookup_indices[i];
         char *dest = &queries_pool[i * KEYWORD_MAX_SIZE];
-        char *src = keys[index];
+        char *src = context->keys[index];
 
         if (index % 2 == 0) {
             memcpy(dest, src, KEYWORD_MAX_SIZE);
@@ -244,21 +243,23 @@ static char** generate_random_queries(char **keys, uint64_t *indices, uint64_t c
             memcpy(dest, src + 1, KEYWORD_MAX_SIZE - 1);
         }
 
-        random_queries[i] = dest;
+        test_queries[i] = dest;
     }
 
-    *out_queries_pool = queries_pool;
-    return random_queries;
+    context->queries_pool = queries_pool;
+    context->test_queries = test_queries;
+    return 0;
 }
 
-static char **tokenize_buffer(char *buffer, uint64_t buf_size, uint64_t *token_count, char **out_pool)
+static int tokenize_buffer(BenchmarkContext *context, char *buffer, uint64_t buf_size)
 {
-    assert(buffer); assert(token_count); assert(out_pool);
+    assert(context); assert(buffer); 
 
     uint64_t count = count_non_empty_lines(buffer, buf_size);
     char **tokens = (char **)calloc(count, sizeof(char *));
     if (tokens == NULL) {
-        return NULL;
+        ERROR("memory allocation error");
+        return -1;
     }
     
     char *aligned_pool = (char *)aligned_alloc(KEYWORD_MAX_SIZE, count * KEYWORD_MAX_SIZE);
@@ -285,11 +286,11 @@ static char **tokenize_buffer(char *buffer, uint64_t buf_size, uint64_t *token_c
         }
     }
 
-    // Структура буфера:
-    //      "string1\0string2\0...\0string_last\0"
-    *token_count = count;
-    *out_pool = aligned_pool;
-    return tokens;
+    context->key_count = count;
+    context->keys = tokens;
+    context->aligned_pool = aligned_pool;
+
+    return 0;
 }
 
 static uint64_t count_non_empty_lines(const char *buffer, uint64_t buf_size)

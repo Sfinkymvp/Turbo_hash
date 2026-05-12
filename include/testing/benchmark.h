@@ -17,8 +17,6 @@ extern const equals_function DEFAULT_EQUALS_FUNCTION;
 
 typedef struct {
     char *aligned_pool;
-    uint64_t pool_size;
-
     char **keys;
     uint64_t key_count;
 
@@ -26,7 +24,6 @@ typedef struct {
 
     char *queries_pool;
     char **test_queries;
-
     uint64_t* lookup_indices;
     uint64_t lookup_iterations;
     uint64_t lookup_time;
