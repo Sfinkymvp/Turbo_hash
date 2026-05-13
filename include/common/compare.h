@@ -14,30 +14,21 @@
 
         __asm__ volatile (
             ".intel_syntax noprefix;"
-            "vpxord zmm2, zmm2, zmm2;"
-            "1:;"
-            "vmovdqu8 zmm0, [%[s1]];"
-            "vmovdqu8 zmm1, [%[s2]];"
+
+            "vmovdqu8 ymm0, [%[s1]];"
+            "vmovdqu8 ymm1, [%[s2]];"
             
-            "vpcmpub k1, zmm0, zmm1, 4;" 
-            "vpcmpub k3, zmm0, zmm2, 0;" 
-            "korq k4, k3, k1;"
-            "kortestq k4, k4;"
-            "jne 2f;"
+            "vpcmpub k1, ymm0, ymm1, 4;" 
 
-            "add %[s1], 64;"
-            "add %[s2], 64;"
-            "jmp 1b;"
-
-            "2:;"
             "kmovq %q[res], k1;"
             "test %q[res], %q[res];"
             "setnz %b[res];"  
             "movzx %[res], %b[res];"
+
             ".att_syntax prefix"
             : [res] "=&r" (res), [s1] "+r" (str1), [s2] "+r" (str2)
             : 
-            : "zmm0", "zmm1", "zmm2", "k1", "k3", "k4", "cc", "memory"
+            : "zmm0", "ymm1","k1", "cc", "memory"
         );
 
         return res;

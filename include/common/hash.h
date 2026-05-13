@@ -30,33 +30,23 @@ int string_equals_naive(const char *str1, const char *str2);
     #define STRING_LEN(str) my_strlen_avx512_asm(str)
     
 #elif defined(STRLEN_INLINE)
-    static inline size_t my_strlen_inline_asm(const char *str) {
+    static inline size_t my_strlen_inline(const char *str) {
         size_t len;
 
         __asm__ volatile (
             ".intel_syntax noprefix;"
-            "vpxord zmm1, zmm1, zmm1;"
-            "xor %[len], %[len];" 
-            
-            "1:;"
-            "vmovdqu8 zmm0, [%[str] + %[len]];" 
-            "vpcmpeqb k1, zmm0, zmm1;"
-            
-            "kortestq k1, k1;" 
-            "jnz 2f;"  
-            
-            "add %[len], 64;" 
-            "jmp 1b\n"
 
-            "2:;"
-            "kmovq rcx, k1;"  
-            "tzcnt rcx, rcx;"  
-            "add %[len], rcx;" 
+            "vpxord  ymm1, ymm1, ymm1;"
+            "vmovdqu8 ymm0, [%[str]];" 
+            "vpcmpub k1, ymm0, ymm1, 0;"
             
-            ".att_syntax prefix"
+            "kmovd %k[len], k1;"  
+            "tzcnt %k[len], %k[len];"
+    
+            ".att_syntax prefix;"
             : [len] "=&r" (len)   
             : [str] "r" (str)   
-            : "rcx", "zmm0", "zmm1", "k1", "cc", "memory"
+            : "rax", "ymm0", "ymm1", "k1", "cc", "memory"
         );
 
         return len;

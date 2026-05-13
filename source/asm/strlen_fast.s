@@ -5,25 +5,15 @@
 .section .text
     .global my_strlen_avx512_asm
 
-.equ ZMM_SIZE,  64
+.equ YMM_SIZE,  32
 
 my_strlen_avx512_asm:
-    vpxord      zmm1, zmm1, zmm1 
-    xor         rax, rax   
-
-.loop:
-    vmovdqu8   zmm0, [rdi + rax]  
-    vpcmpeqb    k1, zmm0, zmm1 
+    vpxord      ymm1, ymm1, ymm1
+    vmovdqu8    ymm0, [rdi]
     
-    kortestq    k1, k1    
-    jnz         .found_null  
+    vpcmpub     k1, ymm0, ymm1, 0
     
-    add         rax, ZMM_SIZE
-    jmp         .loop
-
-.found_null:
-    kmovq       rcx, k1    
-    tzcnt       rcx, rcx    
-    add         rax, rcx 
-
+    kmovd       eax, k1 
+    tzcnt       eax, eax 
+    
     ret

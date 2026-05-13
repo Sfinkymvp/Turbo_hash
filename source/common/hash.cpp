@@ -89,35 +89,14 @@ int string_equals_naive(const char *str1, const char *str2)
     {
         assert(key);
 
-        int len = STRING_LEN(key);
+        uint64_t crc64 = (uint64_t)0xFFFFFFFFF;
 
-        uint64_t crc64 = (uint64_t)0xFFFFFFFF;
-        
-        int i = 0;
-        for (; i <= len - 8; i += 8) {
-            crc64 = _mm_crc32_u64(crc64, *(const uint64_t *)(key + i));
-        }
+        crc64 = _mm_crc32_u64(crc64, *(const uint64_t *)(key));
+        crc64 = _mm_crc32_u64(crc64, *(const uint64_t *)(key + 8));
+        crc64 = _mm_crc32_u64(crc64, *(const uint64_t *)(key + 16));
+        crc64 = _mm_crc32_u64(crc64, *(const uint64_t *)(key + 24)); 
 
-        uint32_t crc32 = (uint32_t)crc64;
-        int remainder = len - i;
-
-        if (remainder >= 4) {
-            crc32 = _mm_crc32_u32(crc32, *(const uint32_t *)(key + i));
-            i += 4;
-            remainder -= 4;
-        }
-
-        if (remainder >= 2) {
-            crc32 = _mm_crc32_u16(crc32, *(const uint16_t *)(key + i));
-            i += 2;
-            remainder -= 2;
-        }
-        
-        if (remainder) {
-            crc32 = _mm_crc32_u8(crc32, *(const uint8_t *)(key + i));
-        }
-
-        return (uint64_t)crc32;
+        return crc64;
     }
 
 #else

@@ -72,7 +72,7 @@ int chain_ht_insert(ChainHashTable *table, const char *key, int value)
     return 0;
 }
 
-int chain_ht_find(const ChainHashTable *table, const char *key, int *result)
+__attribute__((noinline)) int chain_ht_find(const ChainHashTable *table, const char *key, int *result)
 {
     CHAIN_HT_ASSERT(table); assert(key);
 

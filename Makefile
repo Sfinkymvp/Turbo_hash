@@ -50,8 +50,8 @@ ifdef OPTI
 		BENCH_TARGET_FILE := $(BENCH_TARGET_FILE)_level0
     else ifeq ($(OPTI), LEVEL1)
         CXXFLAGS += -O3
-		HASH = hash
-		undefine CMP
+		undefine HASH
+		CMP = inline
 		undefine LEN
 		BENCH_TARGET_FILE := $(BENCH_TARGET_FILE)_level1
     else ifeq ($(OPTI), LEVEL2)
@@ -64,7 +64,7 @@ ifdef OPTI
         CXXFLAGS += -O3
         HASH = hash
 		CMP = inline
-		LEN = inline
+		LEN = strlen_fast
 		BENCH_TARGET_FILE := $(BENCH_TARGET_FILE)_level3
     endif
 endif
