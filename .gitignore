@@ -2,7 +2,7 @@ bin/
 obj/
 venv/
 images/
-reports/
+results/
 *.txt
 .vscode
 level*

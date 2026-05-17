@@ -89,7 +89,7 @@ int string_equals_naive(const char *str1, const char *str2)
     {
         assert(key);
 
-        uint64_t crc64 = (uint64_t)0xFFFFFFFFF;
+        uint64_t crc64 = (uint64_t)CRC32_INIT_VALUE;
 
         crc64 = _mm_crc32_u64(crc64, *(const uint64_t *)(key));
         crc64 = _mm_crc32_u64(crc64, *(const uint64_t *)(key + 8));

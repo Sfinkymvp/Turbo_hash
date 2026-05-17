@@ -1,20 +1,14 @@
-import sys, statistics
+import sys, statistics, os, math, textwrap
 import matplotlib.pyplot as plt
-import os
 
-REPORTS_DIR = "reports"
-
-if len(sys.argv) < 3:
-    print("Usage: python3 compare_levels.py <num_searches> <output.png>")
+if len(sys.argv) < 4:
     sys.exit(1)
 
 num_searches = int(sys.argv[1])
 output_file = sys.argv[2]
+input_files = sys.argv[3:]
 
-levels = ["DEFAULT", "LEVEL0", "LEVEL1", "LEVEL2"]
-
-def get_median(level_name):
-    file_path = f"{REPORTS_DIR}/raw_{level_name}.txt"
+def get_stats(file_path):
     if not os.path.exists(file_path):
         return None
     
@@ -24,39 +18,62 @@ def get_median(level_name):
     if len(data) > 15:
         data = data[10:]
     
+    if not data: return None
+    if len(data) == 1: return data[0] / num_searches, 0
+    
     mu = statistics.mean(data)
     sigma = statistics.stdev(data)
     lower, upper = mu - 2*sigma, mu + 2*sigma
-    
+
     filtered = [x for x in data if lower <= x <= upper]
+    if not filtered: filtered = data
     
-    return statistics.median(filtered) / num_searches
+    n = len(filtered)
+    mean_val = statistics.mean(filtered)
+    
+    if n > 1:
+        sem = statistics.stdev(filtered) / math.sqrt(n)
+        error = 1.96 * sem
+    else:
+        error = 0
+        
+    return mean_val / num_searches, error / num_searches
 
 results = {}
-for lvl in levels:
-    val = get_median(lvl)
-    if val is not None:
-        results[lvl] = val
+for f_path in input_files:
+    res = get_stats(f_path)
+    if res is not None:
+        label = os.path.basename(f_path).replace('raw_', '').replace('.txt', '')
+        results[label] = res
 
-names = []
-values = []
-for lvl in levels:
-    if lvl in results:
-        names.append(lvl)
-        values.append(results[lvl])
-
-if not names:
-    print("[ERROR] No data found for any level in reports/ directory.")
+if not results:
     sys.exit(1)
 
-plt.figure(figsize=(10, 7))
+sorted_items = sorted(results.items(), key=lambda item: item[1][0], reverse=True)
+names = [item[0] for item in sorted_items]
+values = [item[1][0] for item in sorted_items]
+errors = [item[1][1] for item in sorted_items]
+
+plt.figure(figsize=(12, 8))
 colors = plt.cm.viridis([i/len(names) for i in range(len(names))])
+
 bars = plt.bar(names, values, color=colors, edgecolor='black', alpha=0.8)
 
-for bar in bars:
+for i, bar in enumerate(bars):
     height = bar.get_height()
-    plt.text(bar.get_x() + bar.get_width()/2., height,
-             f'{height:.2f}', ha='center', va='bottom', fontweight='bold')
+    err = errors[i]
+    rel_err = (err / height * 100) if height > 0 else 0
+    
+    x_start = bar.get_x()
+    x_end = x_start + bar.get_width()
+    x_center = x_start + bar.get_width() / 2
+    
+    plt.vlines(x_center, height - err, height + err, color='red', lw=0.8)
+    plt.hlines([height - err, height + err], x_start, x_end, color='red', lw=0.8)
+    
+    label_text = f'{height:.1f} ± {err:.1f}\n(± {rel_err:.1f}%)'
+    plt.text(x_center, height + err, label_text, ha='center', va='bottom', 
+             fontweight='bold', fontsize=9)
 
 def calc_percent(v_old, v_new):
     if v_old and v_new:
@@ -64,20 +81,22 @@ def calc_percent(v_old, v_new):
         return f"+{diff:.1f}%"
     return "N/A"
 
-p1 = calc_percent(results.get("DEFAULT"), results.get("LEVEL0"))
-p2 = calc_percent(results.get("LEVEL0"), results.get("LEVEL1"))
-p3 = calc_percent(results.get("LEVEL1"), results.get("LEVEL2"))
+stats_parts = []
+for i in range(len(names) - 1):
+    p = calc_percent(values[i], values[i+1])
+    stats_parts.append(f"{names[i]}->{names[i+1]}: {p}")
 
-final_diff = calc_percent(results.get("LEVEL0"), results.get("LEVEL2"))
+if len(names) > 1:
+    total_p = calc_percent(values[0], values[-1])
+    stats_parts.append(f"TOTAL: {total_p}")
 
-stats_text = (f"Def->L0: {p1} | L0->L1: {p2} | "
-              f"L1->L2: {p3} | TOTAL (L0->L2): {final_diff}")
+stats_text = " | ".join(stats_parts)
+wrapped_stats = textwrap.fill(stats_text, width=100)
 
-plt.figtext(0.5, 0.01, stats_text, ha="center", fontsize=9, 
+plt.figtext(0.5, 0.01, wrapped_stats, ha="center", fontsize=9, 
             bbox={"facecolor":"orange", "alpha":0.2, "pad":5})
 
-plt.title("Performance Comparison: Improvement %", fontsize=14)
-plt.ylabel("CPU Ticks (Lower is Better)", fontsize=12)
-
-plt.tight_layout(rect=[0, 0.05, 1, 0.95])
+plt.title("Performance Comparison (with 95% Confidence Intervals)", fontsize=14)
+plt.ylabel("CPU Ticks per Search", fontsize=12)
+plt.tight_layout(rect=[0, 0.1, 1, 0.95])
 plt.savefig(output_file)

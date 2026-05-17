@@ -72,7 +72,7 @@ int chain_ht_insert(ChainHashTable *table, const char *key, int value)
     return 0;
 }
 
-__attribute__((noinline)) int chain_ht_find(const ChainHashTable *table, const char *key, int *result)
+int chain_ht_find(const ChainHashTable *table, const char *key, int *result)
 {
     CHAIN_HT_ASSERT(table); assert(key);
 
@@ -147,6 +147,7 @@ static int chain_ht_rehash(ChainHashTable *table)
                 BUCKET_DESTROY(new_buckets[k]);
             }
         }
+        free(new_buckets);
         return -1;
     }
 

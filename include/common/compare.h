@@ -28,7 +28,7 @@
             ".att_syntax prefix"
             : [res] "=&r" (res), [s1] "+r" (str1), [s2] "+r" (str2)
             : 
-            : "zmm0", "ymm1","k1", "cc", "memory"
+            : "ymm0", "ymm1","k1", "cc", "memory"
         );
 
         return res;

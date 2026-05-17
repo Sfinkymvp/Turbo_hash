@@ -37,7 +37,7 @@ static uint64_t run_lookup_sample(BenchmarkContext *context);
 static int fill_hash_table(BenchmarkContext *context);
 static void collect_table_stats(BenchmarkContext* context);
 static uint64_t *generate_shuffled_indices(uint64_t count, uint64_t modulus);
-static int generate_random_queries(BenchmarkContext *context);
+static int generate_random_queries(BenchmarkContext *context, uint64_t *random_indices);
 static int tokenize_buffer(BenchmarkContext *context, char *buffer, uint64_t buf_size);
 static uint64_t count_non_empty_lines(const char *buffer, uint64_t buf_size);
 
@@ -114,17 +114,18 @@ int create_benchmark_context(BenchmarkContext *context, Args *args)
     free(buffer);
 
     context->lookup_iterations = args->lookup_iterations;
-    context->lookup_indices = generate_shuffled_indices(context->lookup_iterations, context->key_count);
-    if (context->lookup_indices == NULL) {
+    uint64_t *random_indices = generate_shuffled_indices(context->lookup_iterations, context->key_count);
+    if (random_indices == NULL) {
         destroy_benchmark_context(context);
         return -1;
     }
 
-    status = generate_random_queries(context);
+    status = generate_random_queries(context, random_indices);
     if (status != 0) {
         destroy_benchmark_context(context);
         return status;
     }
+    free(random_indices);
 
     context->sample_count = args->sample_count;
     context->results = (uint64_t *)calloc(context->sample_count, sizeof(uint64_t));
@@ -211,7 +212,7 @@ static uint64_t *generate_shuffled_indices(uint64_t count, uint64_t modulus)
     return indices;
 }
 
-static int generate_random_queries(BenchmarkContext *context)
+static int generate_random_queries(BenchmarkContext *context, uint64_t *random_indices)
 {
     assert(context);
 
@@ -233,7 +234,7 @@ static int generate_random_queries(BenchmarkContext *context)
     memset(queries_pool, 0, iters * KEYWORD_MAX_SIZE);
 
     for (uint64_t i = 0; i < iters; i++) {
-        uint64_t index = context->lookup_indices[i];
+        uint64_t index = random_indices[i];
         char *dest = &queries_pool[i * KEYWORD_MAX_SIZE];
         char *src = context->keys[index];
 

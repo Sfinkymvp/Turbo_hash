@@ -3,14 +3,14 @@ INC_DIR       = include
 BASE_OBJ_DIR  = obj
 BIN_DIR       = bin
 SCRIPTS_DIR   = scripts
-REPORTS_DIR   = reports
+RESULTS_DIR   = results
 IMAGES_DIR    = images
 DATA_DIR 	  = data
 UPROF_DIR  	  = /opt/AMDuProf_5.2-606
 
 CC 			  = g++
 CXXFLAGS      = -I$(INC_DIR) -Wall -Wextra -Werror \
-				-march=native -g -I$(UPROF_DIR)/include
+				-march=native -g -I$(UPROF_DIR)/include -O3
 
 LDFLAGS       = -L$(UPROF_DIR)/lib/x64/ 
 LDLIBS 		  = -lAMDProfileController -lrt -pthread
@@ -40,6 +40,7 @@ endif
 ifdef OPTI
 	undefine LIST_TYPE
     ifeq ($(OPTI), DEFAULT)
+		CXXFLAGS += -O0
         undefine HASH
         undefine CMP
 		BENCH_TARGET_FILE := $(BENCH_TARGET_FILE)_default
@@ -80,7 +81,7 @@ ifdef LEN
 	ifeq ($(LEN), inline)
 		CXXFLAGS += -DSTRLEN_INLINE
 		ifndef OPTI
-			BENCH_TARGET_FILE := $(BENCH_TARGET_FILE)_inlinelen
+			BENCH_TARGET_FILE := $(BENCH_TARGET_FILE)_ilen
 		endif
 	else 
 		CXXFLAGS += -DSTRLEN_ASM
@@ -94,7 +95,7 @@ ifdef CMP
     ifeq ($(CMP), inline)
         CXXFLAGS += -DSTRCMP_INLINE
 		ifndef OPTI
-			BENCH_TARGET_FILE := $(BENCH_TARGET_FILE)_inlinecmp
+			BENCH_TARGET_FILE := $(BENCH_TARGET_FILE)_icmp
 		endif
     else
         CXXFLAGS += -DSTRCMP_ASM
@@ -103,6 +104,26 @@ ifdef CMP
 		endif
     endif
 endif 
+
+ifdef LIST_TYPE
+	ifeq ($(LIST_TYPE), CF)
+		CXXFLAGS += -DCF_LIST
+		CONTAINER_NAME = cf_list
+		BENCH_TARGET_FILE := $(BENCH_TARGET_FILE)_cf
+	else ifeq ($(LIST_TYPE), STD)
+		CXXFLAGS += -DSTD_LIST
+		CONTAINER_NAME = std_list
+		BENCH_TARGET_FILE := $(BENCH_TARGET_FILE)_std
+	else ifeq ($(LIST_TYPE), CLASSIC)
+		CXXFLAGS += -DCLASSIC_LIST
+		CONTAINER_NAME = classic_list
+		BENCH_TARGET_FILE := $(BENCH_TARGET_FILE)_classic
+	else
+		BENCH_TARGET_FILE := $(BENCH_TARGET_FILE)_default
+	endif
+endif
+
+CONTAINER_NAME ?= array
 
 OBJ_DIR := $(BASE_OBJ_DIR)/$(BENCH_TARGET_FILE)
 
@@ -117,21 +138,6 @@ ifdef CMP
         ASM_OFILES += $(OBJ_DIR)/asm/$(CMP).o
     endif
 endif
-
-ifdef LIST_TYPE
-	ifeq ($(LIST_TYPE), CF)
-		CXXFLAGS += -DCF_LIST
-		CONTAINER_NAME = cf_list
-	else ifeq ($(LIST_TYPE), STD)
-		CXXFLAGS += -DSTD_LIST
-		CONTAINER_NAME = std_list
-	else ifeq ($(LIST_TYPE), CLASSIC)
-		CXXFLAGS += -DCLASSIC_LIST
-		CONTAINER_NAME = classic_list
-	endif
-endif
-
-CONTAINER_NAME ?= array
 
 # Функция для получения объектных файлов на основе .cpp файлов из поддиректорий $(SRC_DIR)
 # В качестве единственного аргумента передается поддиректория в $(SRC_DIR)
@@ -160,7 +166,7 @@ gen: $(GEN_OFILES) | $(BIN_DIR)
 clean:
 	@rm -rf $(BIN_DIR)
 	@rm -rf $(BASE_OBJ_DIR)
-	@rm -rf $(REPORTS_DIR)
+	@rm -rf $(RESULTS_DIR)
 	@rm -rf $(IMAGES_DIR)
 
 $(GEN_OFILES): $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp | $(OBJ_DIR)

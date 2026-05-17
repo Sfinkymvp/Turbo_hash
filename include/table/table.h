@@ -10,7 +10,7 @@
     
     typedef CFList* Bucket;
     
-    #define BUCKET_INIT(bucket)                   cf_list_init(bucket)
+    #define BUCKET_INIT()                         cf_list_init()
     #define BUCKET_INSERT(bucket, key, value)     cf_list_insert(bucket, key, value)
     #define BUCKET_FIND(bucket, key, res_ptr)     cf_list_find(bucket, key, res_ptr)
     #define BUCKET_REMOVE(bucket, key)            cf_list_remove(bucket, key)
@@ -22,7 +22,7 @@
 
     typedef StdList* Bucket;
 
-    #define BUCKET_INIT(bucket)                   std_list_init(bucket)
+    #define BUCKET_INIT()                         std_list_init()
     #define BUCKET_INSERT(bucket, key, value)     std_list_insert(bucket, key, value)
     #define BUCKET_FIND(bucket, key, res_ptr)     std_list_find(bucket, key, res_ptr)
     #define BUCKET_REMOVE(bucket, key)            std_list_remove(bucket, key)
@@ -34,7 +34,7 @@
     
     typedef CList* Bucket;
     
-    #define BUCKET_INIT(bucket)                   classic_list_init(bucket)
+    #define BUCKET_INIT()                         classic_list_init()
     #define BUCKET_INSERT(bucket, key, value)     classic_list_insert(bucket, key, value)
     #define BUCKET_FIND(bucket, key, res_ptr)     classic_list_find(bucket, key, res_ptr)
     #define BUCKET_REMOVE(bucket, key)            classic_list_remove(bucket, key)
@@ -46,7 +46,7 @@
 
     typedef DynamicArray* Bucket;
 
-    #define BUCKET_INIT(bucket)                   array_init(bucket)
+    #define BUCKET_INIT()                         array_init()
     #define BUCKET_INSERT(bucket, key, value)     array_insert(bucket, key, value)
     #define BUCKET_FIND(bucket, key, res_ptr)     array_find(bucket, key, res_ptr)
     #define BUCKET_REMOVE(bucket, key)            array_remove(bucket, key)

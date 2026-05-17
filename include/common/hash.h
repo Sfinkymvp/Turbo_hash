@@ -40,8 +40,8 @@ int string_equals_naive(const char *str1, const char *str2);
             "vmovdqu8 ymm0, [%[str]];" 
             "vpcmpub k1, ymm0, ymm1, 0;"
             
-            "kmovd %k[len], k1;"  
-            "tzcnt %k[len], %k[len];"
+            "kmovq %[len], k1;"  
+            "tzcnt %[len], %[len];"
     
             ".att_syntax prefix;"
             : [len] "=&r" (len)   
