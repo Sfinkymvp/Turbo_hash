@@ -25,7 +25,7 @@ typedef enum {
     #define ERROR_F(stream, format, ...) _LOG_ALL(LOG_ERROR, stream, format, ##__VA_ARGS__)
 
     #define INFO(format,  ...) INFO_F(stderr,  format, ##__VA_ARGS__)
-    #define DEBUG(format, ...) DEBUG_F(stderr, format, ##__VA_ARGS__)
+    #define DDEBUG(format, ...) DEBUG_F(stderr, format, ##__VA_ARGS__)
     #define WARN(format,  ...) WARN_F(stderr , format, ##__VA_ARGS__)
     #define ERROR(format, ...) ERROR_F(stderr, format, ##__VA_ARGS__)
 
@@ -36,7 +36,7 @@ typedef enum {
     #define ERROR_F(stream, format, ...) ((void)0)
 
     #define INFO(format,  ...) ((void)0)
-    #define DEBUG(format, ...) ((void)0)
+    #define DDEBUG(format, ...) ((void)0)
     #define WARN(format,  ...) ((void)0)
     #define ERROR(format, ...) ((void)0)
 

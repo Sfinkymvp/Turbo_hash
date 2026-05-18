@@ -2,21 +2,9 @@
 #define CF_LIST_H
 
 #include "common/types.h"
+#include "list.h"
 
-typedef struct CFNode CFNode;
-struct CFNode {
-    const char *key;
-    int value;
-    int next;
-};
-
-typedef struct {
-    CFNode *storage;
-    int size;
-    int capacity;
-    int head;
-    int free_head;
-} CFList;
+typedef List CFList;
 
 CFList *cf_list_init();
 int cf_list_insert(CFList *list, const char *key, int value);

@@ -1,17 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
-#include <forward_list>
 
 #include "containers/cf_list.h"
 #include "common/compare.h"
 #include "common/report.h"
-
-static const int EMPTY = -1;
-static const int DEFAULT_CAPACITY = 8;
-
-static int cf_list_resize(CFList *list);
-static void initialize_free_nodes(CFList *list, int start_idx, int end_idx);
 
 CFList *cf_list_init()
 {
@@ -21,19 +14,17 @@ CFList *cf_list_init()
         return NULL;
     }
 
-    list->storage = (CFNode *)calloc(DEFAULT_CAPACITY, sizeof(CFNode));
-    if (list->storage == NULL) {
-        ERROR("memory allocation error");
+#ifdef DEBUG
+    list->debug.creation = (ListCreationInfo){
+        "cf_list", __FILE__, __func__, __LINE__
+    };
+#endif // DEBUG
+
+    if (listConstructor(list) != LIST_OK) {
+        ERROR("failed to initialize list");
         free(list);
         return NULL;
     }
-
-    list->capacity = DEFAULT_CAPACITY;
-    list->size = 0;
-    list->head = EMPTY;
-    list->free_head = EMPTY;
-
-    initialize_free_nodes(list, 0, list->capacity - 1);
 
     return list;
 }
@@ -41,29 +32,20 @@ CFList *cf_list_init()
 int cf_list_insert(CFList *list, const char *key, int value)
 {
     assert(list); assert(key);
-
-    int curr = list->head;
-    while (curr != EMPTY) {
-        if (COMPARE_KEYS(list->storage[curr].key, key) == 0) {
+    
+    int curr = list->storage[0].next;
+    while (curr != 0) {
+        if (COMPARE_KEYS(list->storage[curr].value.key, key) == 0) {
             return 1;
         }
         curr = list->storage[curr].next;
     }
 
-    if (list->free_head == EMPTY) {
-        if (cf_list_resize(list) != 0) {
-            return -1;
-        }
+    DataType new_data = {key, value};
+
+    if (listInsertAfter(list, 0, new_data) != LIST_OK) {
+        return -1;
     }
-
-    int new_idx = list->free_head;
-    list->free_head = list->storage[list->free_head].next;
-    list->storage[new_idx].key = key;
-    list->storage[new_idx].value = value;
-
-    list->storage[new_idx].next = list->head;
-    list->head = new_idx;
-    list->size++;
 
     return 0;
 }
@@ -72,11 +54,12 @@ int cf_list_find(CFList *list, const char *key, int *result)
 {
     assert(list); assert(key);
 
-    int curr = list->head;
-    while (curr != EMPTY) {
-        if (COMPARE_KEYS(list->storage[curr].key, key) == 0) {
+    int curr = list->storage[0].next;
+
+    while (curr != 0) {
+        if (COMPARE_KEYS(list->storage[curr].value.key, key) == 0) {
             if (result) {
-                *result = list->storage[curr].value;
+                *result = list->storage[curr].value.value;
             }
             return 1;
         }
@@ -88,50 +71,33 @@ int cf_list_find(CFList *list, const char *key, int *result)
 
 int cf_list_remove(CFList *list, const char *key)
 {
-    assert(list);
+    assert(list); assert(key);
 
-    int prev = EMPTY;
-    int curr = list->head;
+    int curr = list->storage[0].next;
 
-    while (curr != EMPTY) {
-        if (COMPARE_KEYS(list->storage[curr].key, key) == 0) {
-            break;
+    while (curr != 0) {
+        if (COMPARE_KEYS(list->storage[curr].value.key, key) == 0) {
+            if (listDelete(list, curr) != LIST_OK) {
+                return -1;
+            }
+            return 0;
         }
-
-        prev = curr;
         curr = list->storage[curr].next;
     }
 
-    if (curr == EMPTY) {
-        return 1;
-    }
-
-    if (prev == EMPTY) {
-        list->head = list->storage[curr].next;
-    } else {
-        list->storage[prev].next = list->storage[curr].next;
-    }
-
-    list->storage[curr].key = NULL;
-    list->storage[curr].value = 0;
-
-    list->storage[curr].next = list->free_head;
-    list->free_head = curr;
-    list->size--;
-
-    return 0;
+    return 1;
 }
 
 int cf_list_for_each(CFList *list, action_func action, void *user_data)
 {
     assert(list); assert(action);
 
-    int curr = list->head;
-    while (curr != EMPTY) {
-        if (action(list->storage[curr].key, list->storage[curr].value, user_data) != 0) {
+    int curr = list->storage[0].next;
+
+    while (curr != 0) {
+        if (action(list->storage[curr].value.key, list->storage[curr].value.value, user_data) != 0) {
             return -1;
         }
-
         curr = list->storage[curr].next;
     }
 
@@ -141,56 +107,7 @@ int cf_list_for_each(CFList *list, action_func action, void *user_data)
 void cf_list_destroy(CFList *list)
 {
     assert(list);
-
-    free(list->storage);
+    
+    listDestructor(list);
     free(list);
 }
-
-static int cf_list_resize(CFList *list)
-{
-    assert(list); assert(list->storage); assert(list->capacity > 0);
-
-    if (list->free_head != EMPTY) {
-        assert(list->size != list->capacity);
-        return 0;
-    }
-
-    int new_capacity = 2 * list->capacity;
-    CFNode *temp = (CFNode *)realloc(list->storage, new_capacity * sizeof(CFNode));
-    if (temp == NULL) {
-        ERROR("cache-friendly list resize error");
-        return -1;
-    }
-
-    list->storage = temp;
-    list->capacity = new_capacity;
-
-    initialize_free_nodes(list, list->capacity / 2, list->capacity - 1);
-    return 0;
-}
-
-static void initialize_free_nodes(CFList *list, int start_idx, int end_idx)
-{
-    assert(list); assert(list->storage);
-
-    int curr = list->free_head;
-    if (curr != EMPTY) {
-        while (list->storage[curr].next != EMPTY) {
-            curr = list->storage[curr].next;
-        }
-    }
-
-    for (int i = start_idx; i <= end_idx; i++) {
-        list->storage[i].key = NULL;
-        list->storage[i].value = 0;
-        list->storage[i].next = i + 1;
-    }
-    list->storage[end_idx].next = EMPTY;
-
-    if (curr == EMPTY) {
-        list->free_head = start_idx;
-    } else {
-        list->storage[curr].next = start_idx;
-    }
-}
-

@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
-#include <forward_list>
 
 #include "containers/classic_list.h"
 #include "common/compare.h"

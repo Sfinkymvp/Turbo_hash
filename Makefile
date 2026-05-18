@@ -7,9 +7,10 @@ RESULTS_DIR   = results
 IMAGES_DIR    = images
 DATA_DIR 	  = data
 UPROF_DIR  	  = /opt/AMDuProf_5.2-606
+SUBMOD_DIR = Array_based_list
 
 CC 			  = g++
-CXXFLAGS      = -I$(INC_DIR) -Wall -Wextra -Werror \
+CXXFLAGS      = -I$(INC_DIR) -I$(SUBMOD_DIR) -Wall -Wextra -Werror \
 				-march=native -g -I$(UPROF_DIR)/include -O3
 
 LDFLAGS       = -L$(UPROF_DIR)/lib/x64/ 
@@ -31,6 +32,10 @@ ifeq ($(DEBUG), OFF)
 	CXXFLAGS += -DNDEBUG -DDISABLE_LOGS
 endif 
 
+ifeq ($(DEBUG), DUMP)
+	CXXFLAGS += -DDEBUG
+endif 
+
 ifeq ($(INDIRECT), ON)
 	OPTI = DEFAULT
     CXXFLAGS += -DINDIRECT
@@ -40,7 +45,7 @@ endif
 ifdef OPTI
 	undefine LIST_TYPE
     ifeq ($(OPTI), DEFAULT)
-		CXXFLAGS += -O0
+		CXXFLAGS += -Odefault
         undefine HASH
         undefine CMP
 		BENCH_TARGET_FILE := $(BENCH_TARGET_FILE)_default
@@ -148,13 +153,23 @@ TABLE_OFILES   = $(call get_cxx_objects,table)
 TESTING_OFILES = $(call get_cxx_objects,testing)
 CONTAINERS_OFILES = $(filter %$(CONTAINER_NAME).o, $(call get_cxx_objects,containers))
 
+ifeq (${LIST_TYPE}, CF)
+	SUBMOD_SRC = $(SUBMOD_DIR)/list.cpp
+
+	ifeq ($(DEBUG), ON)
+		SUBMOD_SRC += $(SUBMOD_DIR)/graph_generator.cpp $(SUBMOD_DIR)/html_dump.cpp
+	endif 
+
+	SUBMOD_OBJ = $(patsubst $(SUBMOD_DIR)/%.cpp,$(OBJ_DIR)/$(SUBMOD_DIR)/%.o,$(SUBMOD_SRC))
+endif 
+
 OFILES         = $(COMMON_OFILES) $(TABLE_OFILES) $(TESTING_OFILES) $(CONTAINERS_OFILES)
 
 GEN_OFILES     = $(call get_cxx_objects,generator)
 
 .PHONY: all run gen clean
 
-all: $(OFILES) $(ASM_OFILES) | $(BIN_DIR)
+all: $(OFILES) $(SUBMOD_OBJ) $(ASM_OFILES) | $(BIN_DIR)
 	@$(CC) $(CXXFLAGS) $^ -o $(BIN_DIR)/$(BENCH_TARGET_FILE) $(LDFLAGS) $(LDLIBS)
 
 run: 
@@ -174,6 +189,10 @@ $(GEN_OFILES): $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp | $(OBJ_DIR)
 	@$(CC) $(GENFLAGS) -c $< -o $@
 
 $(OFILES): $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp | $(OBJ_DIR)
+	@mkdir -p $(dir $@)
+	@$(CC) $(CXXFLAGS) -c $< -o $@
+
+$(SUBMOD_OBJ): $(OBJ_DIR)/$(SUBMOD_DIR)/%.o: $(SUBMOD_DIR)/%.cpp | $(OBJ_DIR)
 	@mkdir -p $(dir $@)
 	@$(CC) $(CXXFLAGS) -c $< -o $@
 

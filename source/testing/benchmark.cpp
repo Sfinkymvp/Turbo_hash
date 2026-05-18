@@ -30,8 +30,7 @@ const equals_function DEFAULT_EQUALS_FUNCTION = string_equals_naive;
 
 #define BENCHMARK_ASSERT(context_ptr) \
     assert((context_ptr)->aligned_pool); assert((context_ptr)->keys); CHAIN_HT_ASSERT((context_ptr)->table); \
-    assert((context_ptr)->lookup_indices); assert((context_ptr)->test_queries); \
-    assert((context_ptr)->results);
+    assert((context_ptr)->test_queries); assert((context_ptr)->results);
    
 static uint64_t run_lookup_sample(BenchmarkContext *context);
 static int fill_hash_table(BenchmarkContext *context);
@@ -53,19 +52,19 @@ int run_benchmark(BenchmarkContext *context)
     }
     INFO("filled hash table");
 
-    DEBUG("table: cap - %lu; size - %lu",
+    DDEBUG("table: cap - %lu; size - %lu",
         context->table->capacity, context->table->size);
-    DEBUG("table: max_load_factor - %g", context->table->max_load_factor);
-    DEBUG("lookup iters - %lu", context->lookup_iterations);
+    DDEBUG("table: max_load_factor - %g", context->table->max_load_factor);
+    DDEBUG("lookup iters - %lu", context->lookup_iterations);
 
     collect_table_stats(context);
     INFO("collected table stats");
 
-    DEBUG("collisions - %lu; max_chain_length - %lu", context->collisions,
+    DDEBUG("collisions - %lu; max_chain_length - %lu", context->collisions,
         context->max_chain_length);
-    DEBUG("current load factor: %lf", (double)context->table->size / context->table->capacity);
+    DDEBUG("current load factor: %lf", (double)context->table->size / context->table->capacity);
 
-    DEBUG("key count: %lu", context->key_count);
+    DDEBUG("key count: %lu", context->key_count);
     // Прогрев кешей
     run_lookup_sample(context);
 
@@ -165,7 +164,6 @@ void destroy_benchmark_context(BenchmarkContext *context)
 
     free(context->aligned_pool);
     free(context->keys);
-    free(context->lookup_indices);
     free(context->queries_pool);
     free(context->test_queries);
     free(context->results);

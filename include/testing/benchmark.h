@@ -24,7 +24,6 @@ typedef struct {
 
     char *queries_pool;
     char **test_queries;
-    uint64_t* lookup_indices;
     uint64_t lookup_iterations;
     uint64_t lookup_time;
 
