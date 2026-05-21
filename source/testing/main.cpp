@@ -15,25 +15,26 @@ int main(int argc, char *const *argv)
 
     status = parse_args(&args, argc, argv);
     if (status != 0) {
-        goto cleanup;
+        return status;
     }
     INFO("arguments parsing finished");
 
     status = create_benchmark_context(&context, &args);
     if (status != 0){ 
-        goto cleanup;
+        destroy_benchmark_context(&context);
+        return status;
     }
     INFO("creating behchmark context finished");
 
     status = run_benchmark(&context);
     if (status != 0) {
-        goto cleanup;
+        destroy_benchmark_context(&context);
+        return status;
     }
     INFO("benchmark finished");
     print_results(&context);
     INFO("Results printed");
 
-cleanup:
     destroy_benchmark_context(&context); 
-    return status;
+    return 0;
 }

@@ -76,6 +76,6 @@ my_strcmp:
     kmovq       rax, k4
     test        rax, rax
     setnz       al
-    movzx       rax al
+    movzx       rax, al
 
     ret

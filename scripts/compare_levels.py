@@ -33,7 +33,9 @@ def get_stats(file_path):
     
     if n > 1:
         sem = statistics.stdev(filtered) / math.sqrt(n)
-        error = 1.96 * sem
+        # 20 измерений, доверительная вероятность - 0.95
+        STUDENTS_COEFF = 2.08596344727
+        error = STUDENTS_COEFF * sem
     else:
         error = 0
         
@@ -71,7 +73,7 @@ for i, bar in enumerate(bars):
     plt.vlines(x_center, height - err, height + err, color='red', lw=0.8)
     plt.hlines([height - err, height + err], x_start, x_end, color='red', lw=0.8)
     
-    label_text = f'{height:.1f} ± {err:.1f}\n(± {rel_err:.1f}%)'
+    label_text = f'{height:.0f} ± {err:.0f}\n(± {rel_err:.1f}%)'
     plt.text(x_center, height + err, label_text, ha='center', va='bottom', 
              fontweight='bold', fontsize=9)
 
@@ -96,7 +98,7 @@ wrapped_stats = textwrap.fill(stats_text, width=100)
 plt.figtext(0.5, 0.01, wrapped_stats, ha="center", fontsize=9, 
             bbox={"facecolor":"orange", "alpha":0.2, "pad":5})
 
-plt.title("Performance Comparison (with 95% Confidence Intervals)", fontsize=14)
+plt.title("Performance Comparison", fontsize=14)
 plt.ylabel("CPU Ticks per Search", fontsize=12)
 plt.tight_layout(rect=[0, 0.1, 1, 0.95])
 plt.savefig(output_file)

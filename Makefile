@@ -45,7 +45,7 @@ endif
 ifdef OPTI
 	undefine LIST_TYPE
     ifeq ($(OPTI), DEFAULT)
-		CXXFLAGS += -Odefault
+		CXXFLAGS += -O0
         undefine HASH
         undefine CMP
 		BENCH_TARGET_FILE := $(BENCH_TARGET_FILE)_default

@@ -108,7 +108,7 @@ int string_equals_naive(const char *str1, const char *str2)
         unsigned int crc = CRC32_INIT_VALUE;
 
         for (; *buffer != '\0'; buffer++) {
-        crc = (crc << 8) ^ crc32_table[((crc >> 24) ^ *buffer) & 255];
+            crc = (crc << 8) ^ crc32_table[((crc >> 24) ^ *buffer) & 255];
         }
 
         return (uint64_t)crc;
